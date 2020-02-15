@@ -1,0 +1,21 @@
+#Project: Dats 6450 Project1
+#Title: Git usage recommendation for collaborations
+
+Recommendations:
+1. Use command - "git pull origin master" to update your local master branch before working.
+
+2. Use command - "git checkout <<branch name>>" to switch branch you want to work on.
+
+3. Always switch on your own branch after update you master branch. Never work on master branch directly!
+
+4. After split the work, do NOT change any other people's work. Work on your own part.
+
+5. Inform your teammates before "git push origin <<branch name>>".
+
+6. Never push directly into master branch, push to your own branch instead.
+
+7. Make your commit message helpful. See the commit standard text file. Stay with the format.
+
+8. Every commit should achieve one goal. For example: add new feature.
+
+9. Try to divide your work into several steps, each time you finish 1 step commit to your local repository.
