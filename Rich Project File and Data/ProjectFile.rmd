@@ -37,6 +37,7 @@ loadPkg = function(x) { if (!require(x,character.only=T, quietly =T)) { install.
 ```
 
 ** Below is the chiunk if programming that takes the DTA and converts it into a dataframe. **
+ghgh
 
 ```{r loadData, include=T}
 loadPkg('tidyverse')
