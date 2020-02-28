@@ -3,20 +3,20 @@ All columns are organized chronologically (as they appear in the R dataframe wil
 
 Column Name		Description:					Recommended Action:
 SEQN			Respondent Sequence Number			GOOD
-PEASCST1		Blood Pressure Status				GOOD
+PEASCST1		Blood Pressure Status				ignore
 			(1 - Complete, 2 - Partial, 3- Not Done)
 PEASCTM1		Blood Pressure Time (sec)			ignore
 PEASCCT1		Comment on Why BP is note Complete		ignore
-BPXCHR			60 Second Heart Rate				GOOD
-BPQ150A			Had food in the past 30 minutes?		maybe
-BPQ150B			Had alcohol in the past 30 minutes?		maybe
-BPQ150C			Had coffee in the past 30 minutes?		maybe
-BPQ150D			Had cigarettes in the past 30 minutes?		maybe
+BPXCHR			60 Second Heart Rate				ignore
+BPQ150A			Had food in the past 30 minutes?		GOOD
+BPQ150B			Had alcohol in the past 30 minutes?		GOOD
+BPQ150C			Had coffee in the past 30 minutes?		GOOD
+BPQ150D			Had cigarettes in the past 30 minutes?		GOOD
 BPAARM			Arm selected for testing			ignore
 BPACSZ			Cuff Size					ignore
-BPXPLS			60 Second Pulse					GOOD
-BPXDB			# of dropped beats in 30 seconds		maybe
-BPXPULS			Pulse Regular? (1 - Reg, 2 - Irreg)		maybe
+BPXPLS			60 Second Pulse					ignore
+BPXDB			# of dropped beats in 30 seconds		ignore
+BPXPULS			Pulse Regular? (1 - Reg, 2 - Irreg)		ignore
 BPXPTY			Pulse Type					ignore
 BPXML1			Maximum Inflation Levels (mmHg)			ignore
 BPXSY1			First Reading Systolic Pressure (mmHg)		Good
@@ -40,7 +40,7 @@ RIDAGEMN		Month Age at Screening				ignore
 RIDAGEEX		Exam Age in Months				ignore
 RIDRETH1		Race/Ethnicity (1 - Mexican, 2 - Hispanic	GOOD
 			3 - White, 4 - Black, 5 - Other)
-DMQMILIT		Veteran/Military Status				ignore
+DMQMILIT		Veteran/Military Status				GOOD
 DMDBORN			Country of Birth				ignore
 DMDCITZN		Citizen Status					ignore
 DMDYRSUS		Length of Time in the US			ignore
@@ -50,7 +50,7 @@ DMDSCHOL		Now Attending School?				ignore
 DMDMARTL		Marital Status					ignore
 DMDHHSIZ		Total Number of People in Household		ignore
 DMDFMSIZ		Total Number of People in Family		ignore
-INDHHINC		Annual Household Income				ignore
+INDHHINC		Annual Household Income				GOOD
 INDFMINC		Annual Family Income				ignore
 INDFMPIR		Family Poverty Income Ratio			ignore
 RIDEXPRG		Pregnancy Status at Exam			ignore

@@ -25,8 +25,8 @@ DMDSCHOL		Now attending school?				IGNORE
 DMDMARTL		Marital Status					IGNORE
 DMDHHSIZ		Number of People in Household			IGNORE
 DMDFMSIZ		Number of People in Family			IGNORE
-INDHHINC		Annual Household Income				maybe?
-INDFMINC		Annual Family Income				IGNORE
+INDHHINC		Annual Household Income				good
+INDFMINC		Annual Family Income				good
 INDFMPIR		Family Poverty Income Ratio			IGNORE
 RIDEXPRG		Pregnancy Status at Exam			IGNORE
 DMDHRGND		Household Ref Person Gender			IGNORE
