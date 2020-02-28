@@ -7,7 +7,7 @@ SDDSRVYR		Data Release Number				IGNORE
 RIDSTATR		Interview/Exam Status (1 - interview only)	good
 					      (2 - Inter + Exam)
 RIDEXMON		Time exam was conducted				IGNORE
-RIAGENDR		Gender (1 - male; 2 - female)			good
+Gender (1 - male; 2 - female)			good
 RIDAGEYR		Year Age at Screening (Topped at 85)		good
 RIDAGEMN		Month Age at Screening				IGNORE
 RIDAGEEX		Month Age at Exam				IGNORE
