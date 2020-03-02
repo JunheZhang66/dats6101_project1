@@ -1,0 +1,737 @@
+---
+title: "Data Science Project -  A Review of the Relationship Between Personal Factors and Measured Blood Pressure"
+author: "Memes and Music: \nRich Gude \nSiwei Yang \nJunhe Zhang \nKrystal Payton"
+date: "March 11, 2020"
+output:
+  html_document:
+  code_folding: hide
+number_sections: true
+toc: yes
+toc_depth: 2
+toc_float: yes
+pdf_document:
+  toc: yes
+---
+  
+```{r setup, include=FALSE}
+# some of common options (and the defaults) are: 
+# include=T, eval=T, echo=T, results='hide'/'asis',..., collapse=F, warning=T, message=T, error=T, cache=T, fig.width=6, fig.height=4, fig.dim=c(6,4) #inches, fig.align='left'/'center','right', 
+knitr::opts_chunk$set(warning = F, results = T, message = F)
+# knitr::opts_chunk$set(warning = F, results = F, message = F)
+# knitr::opts_chunk$set(include = F)
+# knitr::opts_chunk$set(echo = TRUE)
+options(scientific=T, digits = 3) 
+# options(scipen=9, digits = 3) 
+# 'scipen': integer. A penalty to be applied when deciding to print numeric values in fixed or exponential notation.  Positive values bias towards fixed and negative towards scientific notation: fixed notation will be preferred unless it is more than 'scipen' digits wider.
+# use scipen=999 to prevent scientific notation at all times
+```
+
+```{r basicfcn, include=F}
+# use this function to conveniently load libraries and work smoothly with knitting
+# can add quietly=T option to the require() function
+# note that using this function requires quotes around the package name, as you would when installing packages.
+loadPkg = function(x) { if (!require(x,character.only=T, quietly =T)) { install.packages(x,dep=T,repos="http://cran.us.r-project.org"); if(!require(x,character.only=T)) stop("Package not found") } }
+# unload/detact package when done using it
+# detach_package = function(pkg, character.only = FALSE) { if(!character.only) { pkg <- deparse(substitute(pkg)) } search_item <- paste("package", pkg, sep = ":") while(search_item %in% search()) { detach(search_item, unload = TRUE, character.only = TRUE) } }
+```
+
+```{r outlierKD2, include = F}
+# Fix outliers
+outlierKD2 <- function(df, var, rm=FALSE) { 
+    #' Original outlierKD functino by By Klodian Dhana,
+    #' https://www.r-bloggers.com/identify-describe-plot-and-remove-the-outliers-from-the-dataset/
+    #' Modified to have third argument for removing outliers instead of interactive prompt, 
+    #' and after removing outlier, original df will not be changed. The function returns the new df, 
+    #' which can be saved as original df name if desired.
+    #' Check outliers, and option to remove them, save as a new dataframe. 
+    #' @param df The dataframe.
+    #' @param var The variable in the dataframe to be checked for outliers
+    #' @param rm Boolean. Whether to remove outliers or not.
+    #' @return The dataframe with outliers replaced by NA if rm==TRUE, or df if nothing changed
+    #' @examples
+    #' outlierKD2(mydf, height, FALSE)
+    #' mydf = outlierKD2(mydf, height, TRUE)
+    #' mydfnew = outlierKD2(mydf, height, TRUE)
+    dt = df # duplicate the dataframe for potential alteration
+    var_name <- eval(substitute(var),eval(dt))
+    na1 <- sum(is.na(var_name))
+    m1 <- mean(var_name, na.rm = T)
+    par(mfrow=c(2, 2), oma=c(0,0,3,0))
+    boxplot(var_name, main="With outliers")
+    hist(var_name, main="With outliers", xlab=NA, ylab=NA)
+    outlier <- boxplot.stats(var_name)$out
+    mo <- mean(outlier)
+    var_name <- ifelse(var_name %in% outlier, NA, var_name)
+    boxplot(var_name, main="Without outliers")
+    hist(var_name, main="Without outliers", xlab=NA, ylab=NA)
+    title("Outlier Check", outer=TRUE)
+    na2 <- sum(is.na(var_name))
+    cat("Outliers identified:", na2 - na1, "\n")
+    cat("Propotion (%) of outliers:", round((na2 - na1) / sum(!is.na(var_name))*100, 1), "\n")
+    cat("Mean of the outliers:", round(mo, 2), "\n")
+    m2 <- mean(var_name, na.rm = T)
+    cat("Mean without removing outliers:", round(m1, 2), "\n")
+    cat("Mean if we remove outliers:", round(m2, 2), "\n")
+    
+    # response <- readline(prompt="Do you want to remove outliers and to replace with NA? [yes/no]: ")
+    # if(response == "y" | response == "yes"){
+    if(rm){
+        dt[as.character(substitute(var))] <- invisible(var_name)
+        #assign(as.character(as.list(match.call())$dt), dt, envir = .GlobalEnv)
+        cat("Outliers successfully removed", "\n")
+        return(invisible(dt))
+    } else {
+        cat("Nothing changed", "\n")
+        return(invisible(df))
+    }
+}
+
+```
+
+# Executive Summary:
+
+
+# Purpose:
+
+To analyze examination and survey data from the National Center of Health Statistics taken from the National Health and Nutrition Examination Surveys from 10,000 interviewees from 2005 and 2006 and identify any link or lackthereof between measured blood pressure data and the ethnicity, gender, age, household income, or veteran status of adult (ages 18 and older) individuals.
+
+# Data Background:
+
+The National Center for Health Statistics (NCHS) conducts an annual series of personal interviews and examinations of 5000 Americans from 15 counties across the United States for the purpose of assessing health and nutrional status of adults and children in the United States.  This series of interviews is known as the National Health and Nutrition Examination Surveys (NHANES).
+
+For the NHANES from 2005 and 2006, conducted from January 2015 though December 2006, 10,348 **[NEED TO CONFIRM FROM DATA]** indiviudals were interviewed and/or examined.  The data collected within these surveys is solely for the purpose of statistical analysis and reporting; direct identifiers and characteristics that might lead to identification of data subjects have been removed prior to distribution.
+
+# Study Design
+
+The NCHS conducts in-home interviews of roughly 7,000 individuals of all ages each year.  Of these 7,000, roughly 5,000 complete health examination surveys.  The target population for interviewees is the non-linstitualized, civilian United States population.  The 2005 and 2006 NHANES include an over-samping of teenage adoloescents (ages 12 to 19), elderly individuals (ages 60 or greater), African Americans, and Mexican Americans. Ethnic, gender, age, houshold income, and veteran status data are solicited during the interview portion while blood pressure readings are taken during the examination portion of the NHANES.
+
+Interviews are predominantly conducted in-person at the interviewee's domicile and are composed of screener, sample person, and family interviews.  Interviewees are mailed information regarding the study prior to interveiwer arrival at the domicile and, at the time of the interview, are provided and asked to sign consent forms agreeing to particiapte in the interviews and medical examinations.  Blood pressure reading are generally taken at mobile examination centers or, if the participant is unable to make it to the center, within their homes.
+
+# A Discussion of the Data
+
+As stated in the purpose, this study will investigate the relationship, or lack thereof, between the blood pressure and the ethnicity, gender, age, houshold income, or veteran status of an individual.  The blood pressure of an individual is a based on a complex series of interactions between many factors including genetics, personal exercise and diet, and access to advanced healthcare.  From the NHANES studies, at least some of these factors can be quantified and, accordingly, allow for appropriately quantitative and qualitative testing to identify a prospective magnitude to which these factors may affect blood pressure: ethnicity, gender, and age provide qualitative measures for genetic factors on blood pressure, veteran status provides a qualitative measure for personal exercise [THIS MAY BE A BIG ASSUMPTION AND WE MAY WANT TO DISCUSS FURTHER], and household income provides a quantitative measure for access to advanced healthcare.
+
+The population from which this data is derived is that of 10,000 American individuals from 30 different United States counties.  For that reason, the conclusions of this study should only be applied to American individuals as there may be some bias within the data with respect to the American health system and general culture.  For instance:
+
+- If household income or veteran status can be considered metrics of access to advanced healthcare, any trend in these two variables with respect to blood pressure may be diminished or exacerbated in comparison to individuals from countries with established publicly-funded healthcare systems (e.g., low-income households may have more access to advanced healthcare in publicly-funded healthcare systems versus those households in the American privately-funded healthcare system).
+- There may be general genetic differences in enthnicities in American populations versus similar ethnic populations in other countries, so any trends between the enthincities discussed within this report may not be representatives of said ethnicities outside of the United States.
+
+In addition, as there is limited discussion in the data report regarding where the 30 counties are located within the United States in order to ensure confidentiality of participants, there may be some regional bias within the United States from the data; however, this is difficult to quantify without additional information.
+
+# Data Preprocessing
+
+As part of the survey and examination, the 2005 and 2006 NHANES solicited over 69 variables from the participants (not counting an unique identification number for each participant), including pulse, four reading of the diastolic and systolic pressures each, education level, marital status, and many others.  For the purposes of this study, only 18 variables are of particular interest; they are as such:
+
+#### Participant Variables of Interest
+
+**1. Participant Sequence Number **
+
+**2 - 5. Did Participant have food/alcohol/coffee/cigarettes in the 30 minutes prior to the Examination? **
+
+**6 - 9. Four Individual Measures of the Participant Diastolic Blood Pressure (in mmHg)**
+
+**10 - 13. Four Individual Measures of the Participant Systolic Blood Pressure (in mmHg)**
+
+**14. Participant Ethnicity, documented as: Mexican American, Other Hispanic, Non-Hispanic White, Non-Hispanic Black, or Other Race**
+
+**15. Participant Gender, documented as: Male or Female**
+
+**16. Participant Age, documented as: 18 - 85 - particpants 85 and older are topcoded at 85**
+
+**17. Participant Veteran Status, documented as "Did Participant ever serve in the Armed Forces of the United States?": Yes or No**
+
+**18. Annual Household Income of Participant, documented as ranges of US dollars as such: $0 to $9999, $10000 to $19999, $20000 to $34999, $35000 to $54999, $55000 to $74999, or over $75000** [WE WILL IGNORE THE OTHER CATEGORIES FOR ALL VARIABLES THAT ARE NOT LISTED HERE SUCH AS UNDER $20000 FOR HOUSEHOLD INCOME]
+
+In preprocessing the data, all of the column variables not listed above from the NHANES data were eliminated from the study dataset in addition to all rows of data that had infant or adolescent data (participant age less than 18 years of age).  Following that, participants that had consumed a stimulant or depressant, such as food, caffeine, nicotine, or alcohol, within the 30 minutes prior to the blood pressure examination, corresponding to particpant variables 6 through 9 above, were eliminated from the dataset so as to not adversely affect the factors under consideration during this study (participants with missing information for these variables are assumed to have taken a stimulant/depressant and will be included in the study).
+
+During the examination, four measures of both the systolic and diastolic pressures were taken for each participant.  In some cases, less than four measurements were taken.  In order to standardize the measured systolic and diastolic pressure measurements, two new columns for the average systolic and diastolic pressures across all of the measurements with relevant measurements, "SystolAvg" and "DiastolAvg", respectively, were created.  All participants with missing data or measured blood pressures of nill (0) for either pressure (clearly indicating an erroronous measurement) were dropped from this study's consideration.
+
+**[I AM STILL NOT SURE IF THE RIGHT CALL IS TO REMOVE ALL ROWS THAT HAVE MISSING OR INCONEVNIENT DATA IN ANY VARIABLE COLUMN OR HAVE THE 5 SEPARATE DATA SUBSETS...  WE MAY NEED TO DISCUSS WITH THE PROFESSOR]**
+
+```{r loadData, include=F}
+# This is the chunk of programming that takes the Blood Pressure DTA file and converts it into a dataframe.
+loadPkg('tidyverse')
+loadPkg('foreign')      # Necessary to import DTA files
+loadPkg('agricolae')    # Necessary for Scheffe Test
+
+dataBP <- read.dta('SampleData_BP.dta')
+```
+
+```{r preprocess, include=T}
+# This code package preprocesses out all of the columns that are not necessary from the Blood Pressure data as well as all of the rows for participants that do not satisfy the "adult" criteria (anyone with an age < 17 years)
+
+# First subset is to narrow rows by age and select relevant columns 
+dataSubset <- subset(dataBP, RIDAGEYR > 17, select = c('SEQN', 'BPQ150A', 'BPQ150B', 'BPQ150C', 'BPQ150D', 'BPXSY1', 'BPXSY2', 'BPXSY3', 'BPXSY4', 'BPXDI1', 'BPXDI2', 'BPXDI3', 'BPXDI4', 'RIAGENDR', 'RIDAGEYR', 'RIDRETH1', 'DMQMILIT', 'INDHHINC'))
+
+# The function below shows that all columns are either factors or intergers and all are appropriate to the data
+# sapply(dataSubset, class)
+
+# Second Subset is to remove all rows with 'Yes' responses from stimulant/depressant columns (missing columns are treated as 'Yes')
+
+dataSubset <- subset(dataSubset, BPQ150A != 'Yes' &  BPQ150B != 'Yes' & BPQ150C != 'Yes' & BPQ150D != 'Yes')
+
+# Using the summary function, we see that there are many missing values in the systolic and diastolic pressure columns (some have only one or two readings vice 4 like others).  There are tests we could have done if we had four sample pressures for every applicant (such as testing if all of the pressures were the same, but instead we're going to just average all of the columns that have any measurements and use those two averages for all further evaluations.
+# Create two new columns that average the values from all of the pressure readings for systolic and diastolic pressures (NAs are not evaluated)
+
+dataSubset$SystolAvg <- rowMeans(dataSubset[c('BPXSY1','BPXSY2','BPXSY3','BPXSY4')], na.rm=TRUE)
+dataSubset$DiastolAvg <- rowMeans(dataSubset[c('BPXDI1','BPXDI2','BPXDI3','BPXDI4')], na.rm=TRUE)
+
+# Drop all rows that are 0 or NA in the Average Systolic and Diastolic columns (these are clearly inappropriately marked or missing data that we cannot use), and then drop all rows that we don't need (the original stimulant/depressant marker questions and the four readings for systolic and diastolic pressures).  The column dropping is for general tidiness.
+
+dataSubset <- subset(dataSubset, SystolAvg != 0 &  DiastolAvg != 0, select = c('SEQN', 'SystolAvg', 'DiastolAvg', 'RIAGENDR', 'RIDAGEYR', 'RIDRETH1', 'DMQMILIT', 'INDHHINC'))
+summary(dataSubset)
+
+```
+
+# Variable Anaylsis and Approach
+
+The purpose of this study is to identify any link or lackthereof between the blood pressure and one of five factors, ethnicity, age, veteran status, gender, and annual household income, based on the survey and examination data from random group of American individuals.  Each variable and their associated effect will be examined in the following five sections.  Each section will review the distribution of the data within each subcategory of the variable (e.g., male versus female in gender or the five surveyed ethnicities in ethnicity).  In order to determine whether blood pressure is dependent or independent of each variable, an Anaylsis of Variance (ANOVA) test for variables with more than two categories or a T-Test for bi-modal variables, such as gender, will be used to identify if there is any difference in the average blood pressure value between the categories.  If there is no statistical difference in the average blood pressure values across the categories of a variable, that variable will be considered to not affect blood pressure.
+
+Additional analysis of the governing assumptions for the ANOVA or T-Tests will be presented in each section as appropriate based on the distribution of the data amongst each categorical group.
+
+# The Effect of Ethnicity on Blood Pressure (presented by Rich Gude)
+
+For the sake of this study, the ethnicity of the participant is a qualitative, categorical variable.  Participants were asked to provide one of five ethnicities, and the 2005 and 2006 NHANES included an oversampling of Mexican and African Americans.  The results of the ethnic information provided by participants in the 2005 and 2006 NHANES studies are provided in the bar graph below:
+
+``` {r, EthnicBarGraph, include=T}
+
+# Create a dummy table to plug into the barplot function.  Define all axises titles and the color palette (coded to ethnicity)
+ethnic_Count <- table(dataSubset$RIDRETH1)
+barPlot_Ethnicity <- barplot(ethnic_Count,
+                             main="Self-Identified Participant Ethnicity",
+                             xlab="Participant Ethnicity",
+                             ylab='Count of Participants',
+                             names.arg= c('Mex Amer', 'NonMex Hisp', 'Caucasian', 'Afr Amer', 'Other'),
+                             col= c('tan', 'red', 'white', 'black', 'blue'))
+
+```
+
+This study will use the ethnic and blood pressure data from `r sum(ethnic_Count)` total participants who passed the data preprocessing steps described above (i.e., those that are of age and contained adequeate blood pressure data).  Of those:
+`r sum(ethnic_Count["Mexican American"])` or `r sum(ethnic_Count["Mexican American"])/sum(ethnic_Count)*100`% were Mexican American,
+`r sum(ethnic_Count["Other Hispanic"])` or `r sum(ethnic_Count["Other Hispanic"])/sum(ethnic_Count)*100`% were Non-Mexican Hispanic American,
+`r sum(ethnic_Count["Non-Hispanic White"])` or `r sum(ethnic_Count["Non-Hispanic White"])/sum(ethnic_Count)*100`% were Caucasian American,
+`r sum(ethnic_Count["Non-Hispanic Black"])` or `r sum(ethnic_Count["Non-Hispanic Black"])/sum(ethnic_Count)*100`% were African American, and
+`r sum(ethnic_Count["Other Race - Including Multi-Racial"])` or `r sum(ethnic_Count["Other Race - Including Multi-Racial"])/sum(ethnic_Count)*100`% were another ethnicity or multiethnic.
+
+## Discussion of the Normality and other Assumptions of the ANOVA Test for Blood Pressure Data between Ethnic Groups
+
+The Analysis of Variance (ANOVA) Test can be used to identify whether all of the ethnic groups accounted within the dataset have the same systolic blood pressures; however, the ANOVA test assumes three facets of the data:
+1. The data for each group is normally distributed.
+2. The variance in the data within each group is equivalent to other groups
+3. The error within the data is independent of the magnitude of the value
+
+The following tests were performed in order to verify the assumptions of the ANOVA test: The Shapiro-Wilk Test will be used to determine the whether the data is normally distributed amongst each ethnicity and blood pressure type, the Bartlett test of homogeneity of variances will be used to test whether the variance within each group is equivalent, and a plot of the residuals from the ANOVA test object will identify the extent of the error within the data and whether it changes with blood pressure values.  For the Shapiro-Wilk test, the null hypothesis is the data is normally distributed with respect to the blood pressure; for a Shapiro-Wilk probability value less than 0.05 (based on a 95% confidence interval), the data will not be considered normally-distributed between for the given ethnic group and blood pressure type.  For the Bartlett test, the null hypothesis is the variance in data between the groups is equivalent; for a Bartlett probability less than 0.05 (based on a 95% confidence interval), the variance will not be considered equivalent between all five ethnic groups.
+
+The histogram plot of the average systolic and diastolic blood pressures from each ethnic group are presented below:
+
+``` {r, EthnicHistograms, include=T}
+
+# Develop a dummy dataframe for Mexican American histograms
+dumMexican <- subset(dataSubset, RIDRETH1 == 'Mexican American')
+hist_MexSyst <- hist(dumMexican$SystolAvg,
+                     main="Histogram of Mexican American Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='tan')
+hist_MexDias <- hist(dumMexican$DiastolAvg,
+                     main="Histogram of Mexican American Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='tan')
+
+# Develop a dummy dataframe for Hispanic American histograms
+dumHispanic <- subset(dataSubset, RIDRETH1 == 'Other Hispanic')
+hist_HisSyst <- hist(dumHispanic$SystolAvg,
+                     main="Histogram of Hispanic American Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='red')
+hist_HisDias <- hist(dumHispanic$DiastolAvg,
+                     main="Histogram of Hispanic American Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='red')
+
+# Develop a dummy dataframe for Caucasian American histograms
+dumCaucasian <- subset(dataSubset, RIDRETH1 == 'Non-Hispanic White')
+hist_CauSyst <- hist(dumCaucasian$SystolAvg,
+                     main="Histogram of Caucasian American Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='white')
+hist_CauDias <- hist(dumCaucasian$DiastolAvg,
+                     main="Histogram of Caucasian American Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='white')
+
+# Develop a dummy dataframe for African American histograms
+dumAfrican <- subset(dataSubset, RIDRETH1 == 'Non-Hispanic Black')
+hist_AfrSyst <- hist(dumAfrican$SystolAvg,
+                     main="Histogram of African American Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='black')
+hist_AfrDias <- hist(dumAfrican$DiastolAvg,
+                     main="Histogram of African American Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='black')
+
+# Develop a dummy dataframe for Other American histograms
+dumOther <- subset(dataSubset, RIDRETH1 == 'Other Race - Including Multi-Racial')
+hist_OthSyst <- hist(dumOther$SystolAvg,
+                     main="Histogram of Other Ethnic or Multi-Ethnic American Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='blue')
+hist_OthDias <- hist(dumOther$DiastolAvg,
+                     main="Histogram of Other Ethnic or Multi-Ethnic American Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='blue')
+
+```
+
+The Shapiro-Wilk Normality Test probablity values for each ethnicity's systolic and diastolic pressure distributions are given below:
+
+For Mexican Americans:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(dumMexican$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(dumMexican$DiastolAvg)$p.value`
+
+
+For Other Hispanic Americans:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(dumHispanic$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(dumHispanic$DiastolAvg)$p.value`
+
+
+For Caucasian Americans:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(dumCaucasian$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(dumCaucasian$DiastolAvg)$p.value`
+
+
+For African Americans:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(dumAfrican$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(dumAfrican$DiastolAvg)$p.value`
+
+
+For Other Ethnic or Multi-Ethnic Americans:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(dumOther$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(dumOther$DiastolAvg)$p.value`
+
+
+Based on the shape of the histograms (which are generally more positively skewed and narrow than a normal distribution curve for the systolic and diastolic pressure distributions, respectively) and the Shapiro-Wilk Test probability values from each, only the diastolic pressures from other ethnic or multi-ethnic participants should be considered normally-distributed.
+
+** SHOULD WE REMOVE OUTLIERS HERE? TBD ***
+
+The Bartlett Probability Test results and a plot of the residuals error values from the average **systolic** blood pressures are presented below:
+
+``` {r Eth_Systol_ANOVA_Assump, include=T}
+
+bartlett.test(SystolAvg ~ RIDRETH1, data=dataSubset)
+
+# Plot the residuals from the ANOVA object to judge the idependence of the error
+aov_EthSystol = aov(SystolAvg ~ RIDRETH1, data = dataSubset)
+plot(aov_EthSystol, 1)
+
+```
+
+From the Bartlett probability value, the variance among systolic pressure data cannot be considered equivalent between each ethnic group; however, the plot of the systolic pressure residuals shows a consistent error in the terms within the data pressure ranges.  With the Shapiro Test results from above, the systolic blood pressure data appears to only satisfy two of the three assumptions for the ANOVA test.
+
+The Bartlett Probability Test results and a plot of the residuals error values from the average **diastolic** blood pressures are presented below:
+
+``` {r Eth_Diastol_ANOVA_Assump, include=T}
+
+bartlett.test(DiastolAvg ~ RIDRETH1, data=dataSubset)
+
+# Plot the residuals from the ANOVA object to judge the idependence of the error
+aov_EthDiastol = aov(DiastolAvg ~ RIDRETH1, data = dataSubset)
+plot(aov_EthDiastol, 1)
+
+```
+
+From the Bartlett probability value, the variance among diastolic pressure data cannot be considered equivalent between each ethnic group; however, similar to the systolic data, the plot of the diastolic pressure residuals shows a consistent error in the terms within the data pressure ranges.  With the Shapiro Test results from above and similar to the systolic data, the diastolic blood pressure data appears to only satisfy two of the three assumptions for the ANOVA test.
+
+Based on the results of the normality, Bartlett, and residuals tests, the ANOVA test results may normally be suspect; however, with a minimum sample size in the non-Mexican Hispanic ethnicity of `r nrow(dumHispanic)`, the study sample size is large enough to pull stastically-significant data.
+
+## Do Ethnic Groups Have the Same Systolic and Diastolic Blood Pressures?
+
+### Systolic Pressure
+
+The results of the normality testing of the systolic blood pressure from various ethnic groups are presented with respect to each other on a single box plot below:
+
+``` {r Eth_Systol_BoxPlots, include=T}
+
+# Plot Systol Averages on BoxPlot to visually commpare mean and variance data with respect to Ethnic Background
+ggplot(dataSubset, aes(x=RIDRETH1, y=SystolAvg)) + 
+  geom_boxplot(colour=c('tan', 'red', 'grey', 'black', 'blue'), outlier.shape=8, outlier.size=4) +
+  labs(title="Systolic Blood Pressure Data with respect to Ethnicity", 
+       x="Ethnicity", y = "Systolic Blood Press. (mmHg)") +
+  # Add scale_x funciton to change label names to shorten them
+  scale_x_discrete(labels = c('Mex Amer', 'NonMex Hisp', 'Caucasian', 'Afr Amer', 'Other'))
+
+```
+
+The ANOVA Test will be used to identify whether all of the five ethnic groups accounted within the dataset have the same systolic blood pressures.  The null hypothesis for this test will be that the ethnic groups do *not* share the same mean blood pressure; for an ANOVA probability less than 0.05 (based on a 95% confidence interval), the mean values will not be considered equivalent between all five ethnic groups and more testing (Scheffe's Procedure, since the sample sizes between the groups are varied) will be necessary.
+
+``` {r Eth_Systol_ANOVA, include=T}
+
+# Dispaly the ANOVA test of the AVG Systol data against Ethnicity since we already calculated the ANOVA test results with the residuals plots
+summary(aov_EthSystol)
+
+```
+
+Based on the results of the box plot, which shows a small but noticable difference in the mean systolic blood pressures as high as ~10 mmHg, and the ANOVA test with an ANOVA probablity value significantly less than 0.05, the systolic blood pressures between the ethnic groups are *not* equivalent.
+
+The results of the Scheffe Multiple Comparisons test are reported below:
+
+``` {r Eth_Systol_Schiffe, include=T}
+
+# Run the Scheffe Test to see with Ethnicities can be considered to have the same Systolic Blood Pressures
+eth_SystCompar <- scheffe.test(aov_EthSystol,"RIDRETH1", group=TRUE, console=TRUE,
+   main="Systolic Blood Pressure between Different Ethnicities")
+
+```
+
+From the Scheffe results, Caucasian, African, and all Hispanic and other ethnicities have different systolic blood pressures.  Mexican, other Hispanic, and all other or multi-ethnic Americans from the survey are considered to have the same systolic blood pressure which is different and lower than Caucasian American systolic blood pressure which, in turn, is different and lower than African American systolic blood pressure.
+
+### Diastolic Pressure
+
+The results of the normality testing of the diastolic blood pressure from various ethnic groups are presented with respect to each other on a single box plot below:
+
+``` {r Dia_Systol_BoxPlots, include=T}
+
+# Plot Diastol Averages on BoxPlot to visually commpare mean and variance data with respect to Ethnic Background
+ggplot(dataSubset, aes(x=RIDRETH1, y=DiastolAvg)) + 
+  geom_boxplot(colour=c('tan', 'red', 'grey', 'black', 'blue'), outlier.shape=8, outlier.size=4) +
+  labs(title="Diastolic Blood Pressure Data with respect to Ethnicity", 
+       x="Ethnicity", y = "Diastolic Blood Press. (mmHg)") +
+  # Add scale_x funciton to change label names to shorten them
+  scale_x_discrete(labels = c('Mex Amer', 'NonMex Hisp', 'Caucasian', 'Afr Amer', 'Other'))
+
+```
+
+The ANOVA Test will be used to identify whether all of the five ethnic groups accounted within the dataset have the same diastolic blood pressures.  The null hypothesis for this test will be that the ethnic groups do *not* share the same mean blood pressure; for an ANOVA probability less than 0.05 (based on a 95% confidence interval), the mean values will not be considered equivalent between all five ethnic groups and more testing (Scheffe's Procedure, since the sample sizes between the groups are varied) will be necessary.
+
+``` {r Dia_Systol_ANOVA, include=T}
+
+# Dispaly the ANOVA test of the AVG Diastol data against Ethnicity since we already calculated the ANOVA test results with the residuals plots
+summary(aov_EthDiastol)
+
+```
+
+Based on the results of the box plot, which shows a small but noticable difference in the mean diastolic blood pressures as high as ~5 mmHg, and the ANOVA test with an ANOVA probablity value significantly less than 0.05, the diastolic blood pressures between the ethnic groups are *not* equivalent.
+
+The results of the Scheffe Multiple Comparisons test are reported below:
+
+``` {r Eth_Diastol_Schiffe, include=T}
+
+# Run the Scheffe Test to see with Ethnicities can be considered to have the same Diastolic Blood Pressures
+eth_SystCompar <- scheffe.test(aov_EthDiastol,"RIDRETH1", group=TRUE, console=TRUE,
+   main="Diastolic Blood Pressure between Different Ethnicities")
+
+```
+
+Compared to the systolic blood pressure, the Scheffe Test results report that the diastolic pressure values are much more uniform among surveyed ethnicities. Mexican Americans and Caucasian, other Hispanic, and other or multi-ethnic Americans have the statistically same average diastolic blood pressure, and African Americans and Caucasian, other Hispanic, and other or multi-ethnic Americans have the statistically same average diastolic blood pressure; in this way, only Mexican Americans and African Americans have different diastolic blood pressures.
+
+## Conclusion of Ethnicity's Effect on Blood Pressure
+
+Based on the results of ANOVA and Schiffe testing, there is a statistical difference between the average systolic and diastolic pressures between various ethnic groups within the United States and, thus, a link between ethnicity and blood pressure.
+
+
+
+
+
+# The Effect of Gender on Blood Pressure (presented by Krystal Payton)
+
+## Visual Presentation of Data (Bar-graph)
+
+## Systolic and Diastolic Pressures with Respect to Each Category (Histograms and Shapiro Normality Test)
+
+## Do the Categories have equivalent Blood Pressures (Box Plots and T-Tests for Binary Categories and ANOVA Test for multiple Categories)
+
+# The Effect of Veteran Status on Blood Pressure (presented by Krystal Payton)
+
+## Visual Presentation of Data (Bar-graph)
+
+## Systolic and Diastolic Pressures with Respect to Each Category (Histograms and Shapiro Normality Test)
+
+## Do the Categories have equivalent Blood Pressures (Box Plots and T-Tests for Binary Categories and ANOVA Test for multiple Categories)
+
+# The Effect of Age on Blood Pressure (presented by Siwei Yang)
+
+## Visual Presentation of Data (Bar-graph)
+
+## Systolic and Diastolic Pressures with Respect to Each Category (Histograms and Shapiro Normality Test)
+
+## Do the Categories have equivalent Blood Pressures (Box Plots and ANOVA Test for multiple Categories or Linear regression if no categorizing ages together)
+
+# The Effect of Annual Household Income on Blood Pressure (presented by Juhne Zhang)
+
+## Visual Presentation of Data (Bar-graph)
+
+## Systolic and Diastolic Pressures with Respect to Each Category (Histograms and Shapiro Normality Test)
+
+## Do the Categories have equivalent Blood Pressures (Box Plots and T-Tests for Binary Categories and ANOVA Test for multiple Categories)
+
+
+
+
+# (OPTIONAL) Are the Variables Independent of Each other? (Chi^2 Test)
+
+
+####Gender Blood Pressure
+
+```{r Reloaded, include=F}
+# This is the chunk of programming that takes the Blood Pressure DTA file and converts it into a dataframe.
+loadPkg('tidyverse')
+loadPkg('foreign')      # Necessary to import DTA files
+loadPkg('agricolae')    # Necessary for Scheffe Test
+
+dataBP <- read.dta('SampleData_BP.dta')
+dataBP
+```
+
+```{r Reload, include=T}
+#Used the data from the dataset for ethnicity to help with creating the results for gender.
+
+# First subset is to narrow rows by age and select relevant columns 
+dataSub <- subset(dataBP, RIDAGEYR > 17, select = c('SEQN', 'BPQ150A', 'BPQ150B', 'BPQ150C', 'BPQ150D', 'BPXSY1', 'BPXSY2', 'BPXSY3', 'BPXSY4', 'BPXDI1', 'BPXDI2', 'BPXDI3', 'BPXDI4', 'RIAGENDR', 'RIDAGEYR'))
+
+dataSub <- subset(dataSub, BPQ150A != 'Yes' &  BPQ150B != 'Yes' & BPQ150C != 'Yes' & BPQ150D != 'Yes')
+
+dataSub$SystolAvg <- rowMeans(dataSub[c('BPXSY1','BPXSY2','BPXSY3','BPXSY4')], na.rm=TRUE)
+dataSub$DiastolAvg <- rowMeans(dataSub[c('BPXDI1','BPXDI2','BPXDI3','BPXDI4')], na.rm=TRUE)
+
+dataSub <- subset(dataSub, SystolAvg != 0 &  DiastolAvg != 0, select = c('SEQN', 'SystolAvg', 'DiastolAvg', 'RIAGENDR', 'RIDAGEYR'))
+summary(dataSub)
+
+```
+
+
+```{r Barployt_Gender, include=T}
+# Create a dummy table to plug into the barplot function.  Define all axises titles and the color palette (coded to ethnicity)
+Gender_Count <- table(dataSub$RIAGENDR)
+barPlot_Gender <- barplot(Gender_Count,
+                             main="Gender of the Participants",
+                             xlab="Gender of Participant",
+                             ylab='Count of Participants',
+                             names.arg= c('Male', 'Female'),
+                             col= c('blue', 'orange'))
+
+
+```
+
+
+```{r include=T}
+# Develop a dummy dataframe for Mexican American histograms
+Female_test <- subset(dataSub, RIAGENDR == 'Female')
+hist_Female_1 <- hist(Female_test$SystolAvg,
+                     main="Histogram of Female Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='yellow')
+
+Male_test <- subset(dataSub, RIAGENDR == 'Male')
+hist_Male_1 <- hist(Male_test$SystolAvg,
+                     main="Histogram of Male Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='red')
+
+hist_Female_2 <- hist(Female_test$DiastolAvg,
+                     main="Histogram of Female Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='yellow')
+hist_Male_2 <- hist(Male_test$DiastolAvg,
+                     main="Histogram of Male Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='red')
+
+```
+
+We are comparing the gender and the blood pressure data from a total of `r sum(Gender_Count)` participants who passed the data preprocessing steps described above (i.e., those that are about the age of 17 and contained adequeate blood pressure data).  Of those accounted for, there are:
+`r sum(Gender_Count["Female"])` or `r sum(Gender_Count["Female"])/sum(Gender_Count)*100`% whom were females,
+`r sum(Gender_Count["Male"])` or `r sum(Gender_Count["Male"])/sum(Gender_Count)*100`% whom were males.
+
+
+The Shapiro-Wilk Normality Test probablity values for each genders systolic and diastolic pressure distributions are given below:
+
+For Females:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(Female_test$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(Female_test$DiastolAvg)$p.value`
+
+
+For Males:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(Male_test$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(Male_test$DiastolAvg)$p.value`
+
+Just like with the histograms for the various ethnicities, the shape of the histograms (which are generally more positively skewed and narrow than a normal distribution curve for the systolic and diastolic pressure distributions, respectively) and the Shapiro-Wilk Test probability values from each, only the diastolic pressures for both males and females should be considered normally-distributed.
+
+
+```{r data, include=F}
+Female_test
+Male_test
+```
+
+```{r TTest, include=T}
+ttest_Syst = t.test(Female_test$SystolAvg, Male_test$SystolAvg)
+ttest_Syst
+
+ttest_Dias = t.test(Female_test$DiastolAvg, Male_test$DiastolAvg)
+ttest_Dias
+```
+
+The Systol average for male and female are `r format(ttest_Syst$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Syst$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
+
+The Diabolic average for male and female are `r format(ttest_Dias$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Dias$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
+
+
+
+```{r contingency, include=F}
+contable_1 = table(Female_test$SystolAvg, Female_test$DiastolAvg)
+contable_1 # the contingency table
+#loadPkg("printr")
+
+contable_2 = table(Male_test$SystolAvg, Male_test$DiastolAvg)
+contable_2
+```
+
+```{r chisq}
+chitest = chisq.test(contable_1)
+chitest
+
+chitest_1 = chisq.test(contable_2)
+chitest_1
+```
+
+A $\chi^2$-test for Female's blood pressure confirms the p-value to be `r format(chitest$p.value)`. So we can adopt that the two frequency distributions are not the same. In other words, this is equivalent to saying that Systostic and Diastolic are not independent of each other. There is an effect on females from the different blood pressures.
+
+####Veterans Blood Pressure
+
+```{r loadeddata, include=F}
+dataML <- read.csv('DMQMILIT_l.csv')
+dataML
+
+```
+
+```{r datasubset_vets, include=T}
+dataSubset_1 <- subset(dataML, DMQMILIT_l == "No" | DMQMILIT_l == "Yes" | DMQMILIT_l =="Refused", select = c('SEQN', 'BPQ150A', 'BPQ150B', 'BPQ150C', 'BPQ150D', 'BPXSY1', 'BPXSY2', 'BPXSY3', 'BPXDI1', 'BPXDI2', 'BPXDI3', 'DMQMILIT_l'))
+
+dataSubset_1 <- subset(dataSubset_1, BPQ150A != 'Yes' &  BPQ150B != 'Yes' & BPQ150C != 'Yes' & BPQ150D != 'Yes')
+
+dataSubset_1$SystolAvg <- rowMeans(dataSubset_1[c('BPXSY1','BPXSY2','BPXSY3')], na.rm=TRUE)
+dataSubset_1$DiastolAvg <- rowMeans(dataSubset_1[c('BPXDI1','BPXDI2','BPXDI3')], na.rm=TRUE)
+
+dataSubset_1 <- subset(dataSubset_1, SystolAvg != 0 &  DiastolAvg != 0, select = c('SEQN', 'SystolAvg', 'DiastolAvg', 'DMQMILIT_l'))
+summary(dataSubset_1)
+```
+
+
+```{r Barployt_Veterans, include=T}
+# Create a dummy table to plug into the barplot function.  Define all axises titles and the color palette (coded to ethnicity)
+Veterans_Count <- table(dataSubset_1$DMQMILIT_l)
+barPlot_Veterans <- barplot(Veterans_Count,
+                             main="Veterans Status of the Participants",
+                             xlab="Veterans Status",
+                             ylab='Count of Participants',
+                             names.arg= c('No', 'Refused','Yes'),
+                             col= c('orange', 'white', 'blue'))
+
+
+```
+
+
+
+
+```{r hist_vets, include=T}
+# Develop a dummy dataframe for Mexican American histograms
+Veterans_test <- subset(dataSubset_1, DMQMILIT_l == 'Yes')
+hist_Veterans_1 <- hist(Veterans_test$SystolAvg,
+                     main="Histogram of the Veterans Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='purple')
+
+Non_Veterans_test <- subset(dataSubset_1, DMQMILIT_l == 'No'| DMQMILIT_l == 'Refused')
+hist_Non_Vet_1 <- hist(Non_Veterans_test$SystolAvg,
+                     main="Histogram of the Non Veterans Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='yellow')
+
+hist_Veterans <- hist(Veterans_test$DiastolAvg,
+                     main="Histogram of the Veterans Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='purple')
+hist_Non_Vet_2 <- hist(Non_Veterans_test$DiastolAvg,
+                     main="Histogram of the Non Veterans Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='yellow')
+
+
+```
+
+
+We are comparing the gender and the blood pressure data from a total of `r sum(Gender_Count)` participants who passed the data preprocessing steps described above (i.e., those that are about the age of 17 and contained adequeate blood pressure data).  Of those accounted for, there are:
+`r sum(Veterans_Count["Yes"])` or `r sum(Veterans_Count["Yes"])/sum(Veterans_Count)*100`% whom were Veterans,
+`r sum(Veterans_Count["No"])` or `r sum(Veterans_Count["No"])/sum(Veterans_Count)*100`% whom were non-Veterans, and
+`r sum(Veterans_Count["Refused"])` or `r sum(Veterans_Count["Refused"])/sum(Veterans_Count)*100`% whom refused to respond.
+
+
+The Shapiro-Wilk Normality Test probablity values for each genders systolic and diastolic pressure distributions are given below:
+
+For Veterans:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(Veterans_test$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(Veterans_test$DiastolAvg)$p.value`
+
+
+For Non Veterans:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(Non_Veterans_test$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(Non_Veterans_test$DiastolAvg)$p.value`
+
+Just like with the histograms for the various ethnicities, the shape of the histograms (which are generally more positively skewed and narrow than a normal distribution curve for the systolic and diastolic pressure distributions, respectively) and the Shapiro-Wilk Test probability values from each, only the diastolic pressures for both veterans and non-veterans should be considered normally-distributed.
+
+```{r data_Vets, include=F}
+Veterans_test
+Non_Veterans_test
+```
+
+```{r TTest_Vets, include=T}
+ttest_Vet_Syst = t.test(Veterans_test$SystolAvg, Non_Veterans_test$SystolAvg)
+ttest_Vet_Syst
+
+ttest_Vet_Dias = t.test(Veterans_test$DiastolAvg, Non_Veterans_test$DiastolAvg)
+ttest_Vet_Dias
+```
+
+
+The Systol average for veterans and non veterans are `r format(ttest_Vet_Syst$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Vet_Syst$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
+
+The Diabolic average for male and female are `r format(ttest_Vet_Dias$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Vet_Dias$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
+
+
+
+
