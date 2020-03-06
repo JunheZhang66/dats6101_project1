@@ -103,7 +103,7 @@ For the NHANES from 2005 and 2006, conducted from January 2015 though December 2
 
 # Study Design
 
-The NCHS conducts in-home interviews of roughly 7,000 individuals of all ages each year.  Of these 7,000, roughly 5,000 complete health examination surveys.  The target population for interviewees is the non-linstitualized, civilian United States population.  The 2005 and 2006 NHANES include an over-samping of teenage adoloescents (ages 12 to 19), elderly individuals (ages 60 or greater), African Americans, and Mexican Americans. Ethnic, gender, age, houshold income, and veteran status data are solicited during the interview portion while blood pressure readings are taken during the examination portion of the NHANES.
+The NCHS conducts in-home interviews of roughly 7,000 individuals of all ages each year.  Of these 7,000, roughly 5,000 complete health examination surveys.  The target population for interviewees is the non-institualized, civilian United States population.  The 2005 and 2006 NHANES include an over-samping of teenage adoloescents (ages 12 to 19), elderly individuals (ages 60 or greater), African Americans, and Mexican Americans. Ethnic, gender, age, houshold income, and veteran status data are solicited during the interview portion while blood pressure readings are taken during the examination portion of the NHANES.
 
 Interviews are predominantly conducted in-person at the interviewee's domicile and are composed of screener, sample person, and family interviews.  Interviewees are mailed information regarding the study prior to interveiwer arrival at the domicile and, at the time of the interview, are provided and asked to sign consent forms agreeing to particiapte in the interviews and medical examinations.  Blood pressure reading are generally taken at mobile examination centers or, if the participant is unable to make it to the center, within their homes.
 
@@ -478,259 +478,307 @@ Based on the results of ANOVA and Schiffe testing, there is a statistical differ
 
 # The Effect of Annual Household Income on Blood Pressure (presented by Juhne Zhang)
 
+My expectation is that people with higher annual household income would have healthier blood pressure status. The reason I make this expectation is because eatting healthy is more expensive. Usually people would spend similar amount of money from their annual household income for food, which means people with higher household income would be more likely to consider eatting healthy food because they can afford it. Therefore, they would have higher chance of getting healthier blood pressure status.
+
 ## Visual Presentation of Data (Bar-graph)
+
+The dataframe I use has seven variables, I am interested in the relationship between American family annual household income and their blood pressures. There are two different type of blood pressures, Diastolic blood pressures and Systolic blood pressures. They are the two indicaters to measure your blood pressure. The below table shows top five row in the dataframe.
+
+```{r HHI read data}
+#read
+df_HHI <- data.frame(dataSubset)
+#display top 5
+head(df_HHI,5)
+dim(df_HHI)
+```
+
+To be more confident about our data, the next thing I did is identify and removing the outliers. This can increase the accuracy of the plots we are going to draw. In other word, to make our final results more reliable. The graphs below show that their are too many outliers and have a serious bad influence on the dataset. After removing the outliers, the graphs above tend to be better scaled with normal distribution. 
+
+```{r HHI clean data}
+#remove outlier
+
+df_HHI = outlierKD2(df_HHI, SystolAvg, TRUE)
+df_HHI = outlierKD2(df_HHI, DiastolAvg, TRUE)
+
+dim(df_HHI)
+```
+
+#test normality
+
+In order to apply annova test to our 12 annual household income, I need to check their normality. All the data points on the graph are in the middle of the graph and formed a 45 degree straight line, this indicates both Systolic and Diastolic blood pressure data are normally distributed.
+
+```{r HHI normality test}
+
+qqnorm(df_HHI$SystolAvg)
+
+qqnorm(df_HHI$DiastolAvg)
+
+```
+
+Then, I want to know the numebr of patients in each categories and decide if make sample on categories. I build a frequency table for each category and notice that category $7,5000 and above and too many data points. It might because that patients did not want to reveal their actual annual household income. All the other categories seem to have good frequency, which followed a normal distribution.
+```{r HHI HHI-Bar}
+#read household dataset
+#df_HHI <- read.csv('./datasets/dataset_INDHHINC_l/INDHHINC_l.csv')
+#df_HHI <- data.frame(dataSubset)
+#display top 5
+#head(df_HHI,5)
+#remove Don't know ...
+#dim(df_HHI)[1]
+df_HHI <- subset(df_HHI, ! INDHHINC %in% c('Don\'t know', 'Over $20,000', 'Refused', 'Under $20,000'))
+#df_HHI[df_HHI[,'INDHHINC'] == 'Over $20,000',]
+#dim(df_HHI)[1]
+#remove na
+#dim(df_HHI)[1]
+df_HHI <- df_HHI[complete.cases(df_HHI),]
+#head(df_HHI[rowSums(is.na(df_HHI))>0,])
+#dim(df_HHI)[1]
+#get number of diff categorical value under household
+df_HHI$INDHHINC <- factor(df_HHI$INDHHINC)
+HH_cats <- levels(df_HHI$INDHHINC)
+#HH_cats
+#get frequency
+HH_freq <- table(df_HHI$INDHHINC)
+df_HH_freq <- as.data.frame(HH_freq)
+df_HH_freq
+#rename frequency df columns
+colnames(df_HH_freq) <- c('HH_income','Freq')
+#
+#names(df_HH_freq)
+ggplot(data=df_HH_freq, aes(x=HH_income, y=Freq, color=HH_income)) +
+  geom_bar(stat='identity', width=0.5, fill = 'white') +
+    theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=90, hjust=1)) +
+    ggtitle('Freq vs \nAnnual Household Income')
+```
 
 ## Systolic and Diastolic Pressures with Respect to Each Category (Histograms and Shapiro Normality Test)
 
+###get mean of Systolic and Diastolic blood pressure average
+
+In order to show the relationship between each category and blood pressure, I need to build a table with each category's mean blood pressure.
+
+```{r HHI HH_mean_avg_sys_dia}
+mean_avg_sys_dia <- df_HHI %>%
+              group_by(INDHHINC) %>%
+              summarise(SystolAvg = mean(SystolAvg),
+                        DiastolAvg = mean(DiastolAvg)
+                        )
+mean_avg_sys_dia
+```
+
+###convert numerical HH_income
+
+I also need to convert the factor into corresponding numerical value so that cor.test function can be applied.
+
+```{r HHI create numer_HHI}
+numer.INDHHINC <- as.numeric(mean_avg_sys_dia$INDHHINC)
+mean_avg_sys_dia$DiastolAvg
+numer.INDHHINC
+```
+
+###display correlation between mean average blood presure according to annual household income
+
+The scatter plot shows that most Systolic blood pressure data points have their mean on the center and less data points distributed on both sides under each category. This tells that the blood pressure data points under each category is normally distributed.
+
+Since the annual household income is ordinal, I find that Systolic blood pressure have a negative correlation with annual household income. The accual correlation between them is `r cor(numer.INDHHINC, mean_avg_sys_dia$SystolAvg, method = 'pearson')`, which support this idea. This test shows that the population with higher annual household income will have relatively lower Systolic blood pressure, and vice versa.
+
+According to American national health organization, having Systolic blood pressure above 120 is a signal for high blood pressure. This negative correlation shows that people with lower annual household income are more likely to have high blood pressure. On the other hand, most people with Systolic blood pressure higher than 120 are from the first half part of the annual household income which is below $3,5000.
+
+```{r HHI HH_systolic}
+
+#annual household systolic scatter plot
+ggplot(df_HHI, aes(x=INDHHINC, y=SystolAvg, color=INDHHINC)) +
+  geom_point(alpha = .05) + 
+  theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=90, hjust=1)) +
+  ggtitle('Systolic BP Avg vs Annual Household Income') +
+  ylab('Systolic BP Avg') +
+  xlab('Annual Household Income')
+#plot systolic mean for each category
+ggplot(mean_avg_sys_dia, aes(x=INDHHINC, y=SystolAvg, color=INDHHINC)) +
+  geom_point(size = 4) + 
+  theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=90, hjust=1)) +
+  ggtitle('Mean of Systolic BP Avg vs Annual Household Income') +
+  ylab('Mean of Systolic BP Avg') +
+  xlab('Annual Household Income')
+#get corelation
+cor(numer.INDHHINC, mean_avg_sys_dia$SystolAvg, method = 'pearson')
+
+#mean vector for each cat
+avg_sys <- c()
+#calculate mean for Sys
+for(cat in HH_cats){
+  #append mean for each cat
+  avg_sys <- c(avg_sys, mean(df_HHI[df_HHI$INDHHINC == cat,2], na.rm=TRUE))
+}
+      
+```
+
+The scatter plot shows that most Diastolic blood pressure data points have their mean on the center and less data points distributed on both sides under each category. This tells that the Diastolic blood pressure data points under each category is normally distributed.
+
+On the other hand, the Diastolic blood pressure correlation test shows a positive relation with the annual household income. The correlation is `r cor(numer.INDHHINC, mean_avg_sys_dia$DiastolAvg, method = 'pearson')`, which is a very significant positive correlation. In other word, the higher the annual house hold income the higher their Diastolic blood pressure. 
+
+Although, the graph shows a positive correlation between Diastolic blood pressure and annual household income, the average Diastolic blood pressure for the second half of the group which is annual household income above $3,5000 are still lower than 80, which is within the healthy Diastolic blood pressure range release by the American national health organization.
+
+```{r HHI HH_Diastolic}
+#annual household Diastolic scatter plot
+ggplot(df_HHI, aes(x=INDHHINC, y=DiastolAvg, color=INDHHINC)) +
+  geom_point(alpha = 0.1) +
+  theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=90, hjust=1)) +
+  ggtitle('Diastolic BP Avg vs Annual Household Income') +
+  ylab('Diastolic BP Avg') + 
+  xlab('Annual Household Income')
+
+#plot Diastolic mean for each category
+ggplot(mean_avg_sys_dia, aes(x=INDHHINC, y=DiastolAvg, color=INDHHINC)) +
+  geom_point(size = 4) + 
+  theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=90, hjust=1)) +
+  ggtitle('Mean of Diastolic BP Avg vs Annual Household Income') +
+  ylab('Mean of Diastolic BP Avg') +
+  xlab('Annual Household Income') 
+  
+#get corelation
+cor(numer.INDHHINC, mean_avg_sys_dia$DiastolAvg, method = 'pearson')
+```
+
 ## Do the Categories have equivalent Blood Pressures (Box Plots and T-Tests for Binary Categories and ANOVA Test for multiple Categories)
 
+The Systolic BP Avg vs Annual Household Income boxplot shows that the mean Systolic blood pressure for each category does not vary too much from each other, this makes common sense since human blood pressure is within this range.
+
+```{r HHI Box plots Systolic}
+#boxplot for systolic avg vs household
+ggplot(df_HHI, aes(x=INDHHINC, y=SystolAvg, color=INDHHINC)) +
+  geom_boxplot(alpha = 0.1) + 
+  theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=90, hjust=1)) +
+  ggtitle('Systolic BP Avg vs Annual Household Income') +
+  ylab('Systolic BP Avg') +
+  xlab('Annual Household Income')
+```
+
+##anova test for systolic blood pressure vs annual household income
+
+The anova test and tukey test for Systolic blood pressure shows that high annual household income categories have different Systolic blood pressure means with low annual household income. This result shows that annual household income do have effect on Systolic blood pressure.
+
+```{r HHI aov Systolic}
+
+sys_aov = aov(SystolAvg ~ INDHHINC, data = df_HHI)
+summary.aov(sys_aov)
+tukey_sys_AoV <- TukeyHSD(sys_aov)
+#tukey_sys_AoV
+tukey_sys_AoV$INDHHINC[tukey_sys_AoV$INDHHINC[,4]<0.05,4]
+
+```
+
+The Diastolic BP Avg vs Annual Household Income boxplot shows that the mean Systolic blood pressure for each category does not vary too much from each other, this makes common sense since human blood pressure is within this range. 
+
+```{r HHI Box plots diastolic}
+#
+ggplot(df_HHI, aes(x=INDHHINC, y=DiastolAvg, color=INDHHINC)) +
+  geom_boxplot(alpha = 0.1) +
+  theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=90, hjust=1)) +
+  ggtitle('Diastolic BP Avg vs Annual Household Income') +
+  ylab('Diastolic BP Avg') + 
+  xlab('Annual Household Income')
+```
+
+The anova test and tukey test for Diastolic blood pressure shows that high annual household income categories have different Diastolic blood pressure means with low annual household income. This result shows that annual household income do have effect on Diastolic blood pressure.
+
+```{r HHI aov Diastolic}
+
+dia_aov = aov(DiastolAvg ~ INDHHINC, data = df_HHI)
+summary.aov(dia_aov)
+tukey_dia_AoV <- TukeyHSD(dia_aov)
+tukey_dia_AoV$INDHHINC[tukey_dia_AoV$INDHHINC[,4]<0.05,4]
+```
+
+#Healthy blood pressure frequency plot for each category
+
+Finally, I need to conform my expectation that people with higher annual household income would have healthier blood pressure status. The healthy blood pressure indicators that release by American national health organization is Systolic blood pressure below 120 and Diastolic blood pressure below 80.
+
+To get the healthy blood pressure proportion for each category, I need to first filter out the patients with Systolic blood pressure under 120 and Diastolic blood pressure under 80 and then build a frequency table with it.  Finally, use the healthy frequency table divide by total frequency table to get the healthy proportion table.
+
+From the bar chart for healthy proportion table below, it shows that in average the higher annual household income the higher percentage of healthy blood pressure in that group. This support my expectation which is that people with higher annual household income would have healthier blood pressure status in average.
+
+```{r HHI healthy blood pressure}
+
+df_HHI_healthy <- df_HHI[df_HHI$DiastolAvg<=80  & df_HHI$SystolAvg <= 120,]
+dim(df_HHI_healthy)
+
+HH_healthy_freq <- table(df_HHI_healthy$INDHHINC)
+
+df_HHI_healthy <- as.data.frame(HH_healthy_freq)
+#rename frequency df columns
+colnames(df_HHI_healthy) <- c('HH_income','healthy_Freq')
+head(df_HHI_healthy)
+head(df_HH_freq)
+df_healthy_total <- merge(df_HH_freq, df_HHI_healthy, by='HH_income')
+#head(df_healthy_total)
+df_healthy_total <- df_healthy_total %>% as_tibble() %>% mutate(
+  proportion = healthy_Freq / Freq
+)
+head(df_healthy_total)
+df_order_healthy_total <- df_healthy_total[order(df_healthy_total$proportion),]
+head(df_order_healthy_total)
+#names(HH_healthy_freq)
+ggplot(data=df_healthy_total, aes(x=HH_income, y=proportion, color=HH_income)) +
+  geom_bar(stat='identity', width=0.5, fill = 'white') +
+    theme(text = element_text(size=10),
+        axis.text.x = element_text(angle=90, hjust=1)) +
+    ggtitle('Healthy BP Freq vs \nAnnual Household Income')
+```
+
+#linear regression model test
+
+##Sytolic blood pressure vs annual household income and Diastolic blood pressure
 
 
+```{r HHI systolic lm}
+loadPkg("modelr")
+model.HHI <- lm(SystolAvg ~ INDHHINC+DiastolAvg, data = df_HHI)
+summary(model.HHI)
+coef(model.HHI)
+confint(model.HHI)
+
+model.HHI.pred <- add_predictions(df_HHI,model.HHI)
+head(model.HHI.pred)
+
+ggplot(model.HHI.pred,aes(SystolAvg,pred))+geom_point(aes(SystolAvg,pred))+geom_line(aes(pred), colour="red", size=1)
+```
+
+```{r HHI diastolic lm}
+loadPkg("modelr")
+model.HHI <- lm(DiastolAvg ~ INDHHINC+SystolAvg, data = df_HHI)
+summary(model.HHI)
+coef(model.HHI)
+confint(model.HHI)
+
+model.HHI.pred <- add_predictions(df_HHI,model.HHI)
+head(model.HHI.pred)
+
+ggplot(model.HHI.pred,aes(DiastolAvg,pred))+geom_point(aes(DiastolAvg,pred))+geom_line(aes(pred), colour="red", size=1)
+```
 
 # (OPTIONAL) Are the Variables Independent of Each other? (Chi^2 Test)
 
 
-####Gender Blood Pressure
 
-```{r Reloaded, include=F}
-# This is the chunk of programming that takes the Blood Pressure DTA file and converts it into a dataframe.
-loadPkg('tidyverse')
-loadPkg('foreign')      # Necessary to import DTA files
-loadPkg('agricolae')    # Necessary for Scheffe Test
 
-dataBP <- read.dta('SampleData_BP.dta')
-dataBP
-```
 
-```{r Reload, include=T}
-#Used the data from the dataset for ethnicity to help with creating the results for gender.
 
-# First subset is to narrow rows by age and select relevant columns 
-dataSub <- subset(dataBP, RIDAGEYR > 17, select = c('SEQN', 'BPQ150A', 'BPQ150B', 'BPQ150C', 'BPQ150D', 'BPXSY1', 'BPXSY2', 'BPXSY3', 'BPXSY4', 'BPXDI1', 'BPXDI2', 'BPXDI3', 'BPXDI4', 'RIAGENDR', 'RIDAGEYR'))
 
-dataSub <- subset(dataSub, BPQ150A != 'Yes' &  BPQ150B != 'Yes' & BPQ150C != 'Yes' & BPQ150D != 'Yes')
 
-dataSub$SystolAvg <- rowMeans(dataSub[c('BPXSY1','BPXSY2','BPXSY3','BPXSY4')], na.rm=TRUE)
-dataSub$DiastolAvg <- rowMeans(dataSub[c('BPXDI1','BPXDI2','BPXDI3','BPXDI4')], na.rm=TRUE)
 
-dataSub <- subset(dataSub, SystolAvg != 0 &  DiastolAvg != 0, select = c('SEQN', 'SystolAvg', 'DiastolAvg', 'RIAGENDR', 'RIDAGEYR'))
-summary(dataSub)
 
-```
 
 
-```{r Barployt_Gender, include=T}
-# Create a dummy table to plug into the barplot function.  Define all axises titles and the color palette (coded to ethnicity)
-Gender_Count <- table(dataSub$RIAGENDR)
-barPlot_Gender <- barplot(Gender_Count,
-                             main="Gender of the Participants",
-                             xlab="Gender of Participant",
-                             ylab='Count of Participants',
-                             names.arg= c('Male', 'Female'),
-                             col= c('blue', 'orange'))
 
 
-```
 
-
-```{r include=T}
-# Develop a dummy dataframe for Mexican American histograms
-Female_test <- subset(dataSub, RIAGENDR == 'Female')
-hist_Female_1 <- hist(Female_test$SystolAvg,
-                     main="Histogram of Female Systolic BP",
-                     xlab="Average Systolic Blood Pressure",
-                     ylab='Count of Pressures',
-                     col='yellow')
-
-Male_test <- subset(dataSub, RIAGENDR == 'Male')
-hist_Male_1 <- hist(Male_test$SystolAvg,
-                     main="Histogram of Male Systolic BP",
-                     xlab="Average Systolic Blood Pressure",
-                     ylab='Count of Pressures',
-                     col='red')
-
-hist_Female_2 <- hist(Female_test$DiastolAvg,
-                     main="Histogram of Female Diastolic BP",
-                     xlab="Average Diastolic Blood Pressure",
-                     ylab='Count of Pressures',
-                     col='yellow')
-hist_Male_2 <- hist(Male_test$DiastolAvg,
-                     main="Histogram of Male Diastolic BP",
-                     xlab="Average Diastolic Blood Pressure",
-                     ylab='Count of Pressures',
-                     col='red')
-
-```
-
-We are comparing the gender and the blood pressure data from a total of `r sum(Gender_Count)` participants who passed the data preprocessing steps described above (i.e., those that are about the age of 17 and contained adequeate blood pressure data).  Of those accounted for, there are:
-`r sum(Gender_Count["Female"])` or `r sum(Gender_Count["Female"])/sum(Gender_Count)*100`% whom were females,
-`r sum(Gender_Count["Male"])` or `r sum(Gender_Count["Male"])/sum(Gender_Count)*100`% whom were males.
-
-
-The Shapiro-Wilk Normality Test probablity values for each genders systolic and diastolic pressure distributions are given below:
-
-For Females:
-
-The Systolic Pressure Probabality Value:   `r shapiro.test(Female_test$SystolAvg)$p.value`
-
-The Diastolic Pressure Probabality Value:   `r shapiro.test(Female_test$DiastolAvg)$p.value`
-
-
-For Males:
-
-The Systolic Pressure Probabality Value:   `r shapiro.test(Male_test$SystolAvg)$p.value`
-
-The Diastolic Pressure Probabality Value:   `r shapiro.test(Male_test$DiastolAvg)$p.value`
-
-Just like with the histograms for the various ethnicities, the shape of the histograms (which are generally more positively skewed and narrow than a normal distribution curve for the systolic and diastolic pressure distributions, respectively) and the Shapiro-Wilk Test probability values from each, only the diastolic pressures for both males and females should be considered normally-distributed.
-
-
-```{r data, include=F}
-Female_test
-Male_test
-```
-
-```{r TTest, include=T}
-ttest_Syst = t.test(Female_test$SystolAvg, Male_test$SystolAvg)
-ttest_Syst
-
-ttest_Dias = t.test(Female_test$DiastolAvg, Male_test$DiastolAvg)
-ttest_Dias
-```
-
-The Systol average for male and female are `r format(ttest_Syst$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Syst$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
-
-The Diabolic average for male and female are `r format(ttest_Dias$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Dias$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
-
-
-
-```{r contingency, include=F}
-contable_1 = table(Female_test$SystolAvg, Female_test$DiastolAvg)
-contable_1 # the contingency table
-#loadPkg("printr")
-
-contable_2 = table(Male_test$SystolAvg, Male_test$DiastolAvg)
-contable_2
-```
-
-```{r chisq}
-chitest = chisq.test(contable_1)
-chitest
-
-chitest_1 = chisq.test(contable_2)
-chitest_1
-```
-
-A $\chi^2$-test for Female's blood pressure confirms the p-value to be `r format(chitest$p.value)`. So we can adopt that the two frequency distributions are not the same. In other words, this is equivalent to saying that Systostic and Diastolic are not independent of each other. There is an effect on females from the different blood pressures.
-
-####Veterans Blood Pressure
-
-```{r loadeddata, include=F}
-dataML <- read.csv('DMQMILIT_l.csv')
-dataML
-
-```
-
-```{r datasubset_vets, include=T}
-dataSubset_1 <- subset(dataML, DMQMILIT_l == "No" | DMQMILIT_l == "Yes" | DMQMILIT_l =="Refused", select = c('SEQN', 'BPQ150A', 'BPQ150B', 'BPQ150C', 'BPQ150D', 'BPXSY1', 'BPXSY2', 'BPXSY3', 'BPXDI1', 'BPXDI2', 'BPXDI3', 'DMQMILIT_l'))
-
-dataSubset_1 <- subset(dataSubset_1, BPQ150A != 'Yes' &  BPQ150B != 'Yes' & BPQ150C != 'Yes' & BPQ150D != 'Yes')
-
-dataSubset_1$SystolAvg <- rowMeans(dataSubset_1[c('BPXSY1','BPXSY2','BPXSY3')], na.rm=TRUE)
-dataSubset_1$DiastolAvg <- rowMeans(dataSubset_1[c('BPXDI1','BPXDI2','BPXDI3')], na.rm=TRUE)
-
-dataSubset_1 <- subset(dataSubset_1, SystolAvg != 0 &  DiastolAvg != 0, select = c('SEQN', 'SystolAvg', 'DiastolAvg', 'DMQMILIT_l'))
-summary(dataSubset_1)
-```
-
-
-```{r Barployt_Veterans, include=T}
-# Create a dummy table to plug into the barplot function.  Define all axises titles and the color palette (coded to ethnicity)
-Veterans_Count <- table(dataSubset_1$DMQMILIT_l)
-barPlot_Veterans <- barplot(Veterans_Count,
-                             main="Veterans Status of the Participants",
-                             xlab="Veterans Status",
-                             ylab='Count of Participants',
-                             names.arg= c('No', 'Refused','Yes'),
-                             col= c('orange', 'white', 'blue'))
-
-
-```
-
-
-
-
-```{r hist_vets, include=T}
-# Develop a dummy dataframe for Mexican American histograms
-Veterans_test <- subset(dataSubset_1, DMQMILIT_l == 'Yes')
-hist_Veterans_1 <- hist(Veterans_test$SystolAvg,
-                     main="Histogram of the Veterans Systolic BP",
-                     xlab="Average Systolic Blood Pressure",
-                     ylab='Count of Pressures',
-                     col='purple')
-
-Non_Veterans_test <- subset(dataSubset_1, DMQMILIT_l == 'No'| DMQMILIT_l == 'Refused')
-hist_Non_Vet_1 <- hist(Non_Veterans_test$SystolAvg,
-                     main="Histogram of the Non Veterans Systolic BP",
-                     xlab="Average Systolic Blood Pressure",
-                     ylab='Count of Pressures',
-                     col='yellow')
-
-hist_Veterans <- hist(Veterans_test$DiastolAvg,
-                     main="Histogram of the Veterans Diastolic BP",
-                     xlab="Average Diastolic Blood Pressure",
-                     ylab='Count of Pressures',
-                     col='purple')
-hist_Non_Vet_2 <- hist(Non_Veterans_test$DiastolAvg,
-                     main="Histogram of the Non Veterans Diastolic BP",
-                     xlab="Average Diastolic Blood Pressure",
-                     ylab='Count of Pressures',
-                     col='yellow')
-
-
-```
-
-
-We are comparing the gender and the blood pressure data from a total of `r sum(Gender_Count)` participants who passed the data preprocessing steps described above (i.e., those that are about the age of 17 and contained adequeate blood pressure data).  Of those accounted for, there are:
-`r sum(Veterans_Count["Yes"])` or `r sum(Veterans_Count["Yes"])/sum(Veterans_Count)*100`% whom were Veterans,
-`r sum(Veterans_Count["No"])` or `r sum(Veterans_Count["No"])/sum(Veterans_Count)*100`% whom were non-Veterans, and
-`r sum(Veterans_Count["Refused"])` or `r sum(Veterans_Count["Refused"])/sum(Veterans_Count)*100`% whom refused to respond.
-
-
-The Shapiro-Wilk Normality Test probablity values for each genders systolic and diastolic pressure distributions are given below:
-
-For Veterans:
-
-The Systolic Pressure Probabality Value:   `r shapiro.test(Veterans_test$SystolAvg)$p.value`
-
-The Diastolic Pressure Probabality Value:   `r shapiro.test(Veterans_test$DiastolAvg)$p.value`
-
-
-For Non Veterans:
-
-The Systolic Pressure Probabality Value:   `r shapiro.test(Non_Veterans_test$SystolAvg)$p.value`
-
-The Diastolic Pressure Probabality Value:   `r shapiro.test(Non_Veterans_test$DiastolAvg)$p.value`
-
-Just like with the histograms for the various ethnicities, the shape of the histograms (which are generally more positively skewed and narrow than a normal distribution curve for the systolic and diastolic pressure distributions, respectively) and the Shapiro-Wilk Test probability values from each, only the diastolic pressures for both veterans and non-veterans should be considered normally-distributed.
-
-```{r data_Vets, include=F}
-Veterans_test
-Non_Veterans_test
-```
-
-```{r TTest_Vets, include=T}
-ttest_Vet_Syst = t.test(Veterans_test$SystolAvg, Non_Veterans_test$SystolAvg)
-ttest_Vet_Syst
-
-ttest_Vet_Dias = t.test(Veterans_test$DiastolAvg, Non_Veterans_test$DiastolAvg)
-ttest_Vet_Dias
-```
-
-
-The Systol average for veterans and non veterans are `r format(ttest_Vet_Syst$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Vet_Syst$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
-
-The Diabolic average for male and female are `r format(ttest_Vet_Dias$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Vet_Dias$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
 
 
 
