@@ -1,0 +1,352 @@
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = F, results = T, message = F)
+# knitr::opts_chunk$set(warning = F, results = F, message = F)
+# knitr::opts_chunk$set(include = F)
+# knitr::opts_chunk$set(echo = TRUE)
+options(scientific=T, digits = 3) 
+# options(scipen=9, digits = 3) 
+# 'scipen': integer. A penalty to be applied when deciding to print numeric values in fixed or exponential notation.  Positive values bias towards fixed and negative towards scientific notation: fixed notation will be preferred unless it is more than 'scipen' digits wider.
+# use scipen=999 to prevent scientific notation at all times
+```
+
+```{r basicfcn, include=F}
+# use this function to conveniently load libraries and work smoothly with knitting
+# can add quietly=T option to the require() function
+# note that using this function requires quotes around the package name, as you would when installing packages.
+loadPkg = function(x) { if (!require(x,character.only=T, quietly =T)) { install.packages(x,dep=T,repos="http://cran.us.r-project.org"); if(!require(x,character.only=T)) stop("Package not found") } }
+# unload/detact package when done using it
+# detach_package = function(pkg, character.only = FALSE) { if(!character.only) { pkg <- deparse(substitute(pkg)) } search_item <- paste("package", pkg, sep = ":") while(search_item %in% search()) { detach(search_item, unload = TRUE, character.only = TRUE) } }
+```
+
+```{r outlierKD2, include = F}
+# Fix outliers
+outlierKD2 <- function(df, var, rm=FALSE) { 
+  #' Original outlierKD functino by By Klodian Dhana,
+  #' https://www.r-bloggers.com/identify-describe-plot-and-remove-the-outliers-from-the-dataset/
+  #' Modified to have third argument for removing outliers instead of interactive prompt, 
+  #' and after removing outlier, original df will not be changed. The function returns the new df, 
+  #' which can be saved as original df name if desired.
+  #' Check outliers, and option to remove them, save as a new dataframe. 
+  #' @param df The dataframe.
+  #' @param var The variable in the dataframe to be checked for outliers
+  #' @param rm Boolean. Whether to remove outliers or not.
+  #' @return The dataframe with outliers replaced by NA if rm==TRUE, or df if nothing changed
+  #' @examples
+  #' outlierKD2(mydf, height, FALSE)
+  #' mydf = outlierKD2(mydf, height, TRUE)
+  #' mydfnew = outlierKD2(mydf, height, TRUE)
+  dt = df # duplicate the dataframe for potential alteration
+  var_name <- eval(substitute(var),eval(dt))
+  na1 <- sum(is.na(var_name))
+  m1 <- mean(var_name, na.rm = T)
+  par(mfrow=c(2, 2), oma=c(0,0,3,0))
+  boxplot(var_name, main="With outliers")
+  hist(var_name, main="With outliers", xlab=NA, ylab=NA)
+  outlier <- boxplot.stats(var_name)$out
+  mo <- mean(outlier)
+  var_name <- ifelse(var_name %in% outlier, NA, var_name)
+  boxplot(var_name, main="Without outliers")
+  hist(var_name, main="Without outliers", xlab=NA, ylab=NA)
+  title("Outlier Check", outer=TRUE)
+  na2 <- sum(is.na(var_name))
+  cat("Outliers identified:", na2 - na1, "\n")
+  cat("Propotion (%) of outliers:", round((na2 - na1) / sum(!is.na(var_name))*100, 1), "\n")
+  cat("Mean of the outliers:", round(mo, 2), "\n")
+  m2 <- mean(var_name, na.rm = T)
+  cat("Mean without removing outliers:", round(m1, 2), "\n")
+  cat("Mean if we remove outliers:", round(m2, 2), "\n")
+  
+  # response <- readline(prompt="Do you want to remove outliers and to replace with NA? [yes/no]: ")
+  # if(response == "y" | response == "yes"){
+  if(rm){
+    dt[as.character(substitute(var))] <- invisible(var_name)
+    #assign(as.character(as.list(match.call())$dt), dt, envir = .GlobalEnv)
+    cat("Outliers successfully removed", "\n")
+    return(invisible(dt))
+  } else {
+    cat("Nothing changed", "\n")
+    return(invisible(df))
+  }
+}
+```
+# measured blood pressure data and age.
+# Participant Age, documented as: 18 - 85 - particpants 85 and older are topcoded at 85**
+  
+```{r loadData, include=F}
+loadPkg('tidyverse')
+loadPkg('foreign')      # Necessary to import DTA files
+loadPkg('agricolae')    # Necessary for Scheffe Test
+dataBP <- read.dta('/Users/wangsiwei/Desktop/Intro to DS/project_1/SampleData_BP.dta')
+```
+
+```{r preprocess, include=T}
+# This code package preprocesses out all of the columns that are not necessary from the Blood Pressure data as well as all of the rows for participants that do not satisfy the "adult" criteria 
+# First subset is to narrow rows by age and select relevant columns 
+dataSubset <- subset(dataBP, RIDAGEYR > 17, select = c('SEQN', 'BPQ150A', 'BPQ150B', 'BPQ150C', 'BPQ150D', 'BPXSY1', 'BPXSY2', 'BPXSY3', 'BPXSY4', 'BPXDI1', 'BPXDI2', 'BPXDI3', 'BPXDI4', 'RIAGENDR', 'RIDAGEYR', 'RIDRETH1', 'DMQMILIT', 'INDHHINC'))
+# The function below shows that all columns are either factors or intergers and all are appropriate to the data
+# sapply(dataSubset, class)
+# Second Subset is to remove all rows with 'Yes' responses from stimulant/depressant columns (missing columns are treated as 'Yes')
+dataSubset <- subset(dataSubset, BPQ150A != 'Yes' &  BPQ150B != 'Yes' & BPQ150C != 'Yes' & BPQ150D != 'Yes')
+# Using the summary function, we see that there are many missing values in the systolic and diastolic pressure columns (some have only one or two readings vice 4 like others).  There are tests we could have done if we had four sample pressures for every applicant (such as testing if all of the pressures were the same, but instead we're going to just average all of the columns that have any measurements and use those two averages for all further evaluations.
+# Create two new columns that average the values from all of the pressure readings for systolic and diastolic pressures (NAs are not evaluated)
+dataSubset$SystolAvg <- rowMeans(dataSubset[c('BPXSY1','BPXSY2','BPXSY3','BPXSY4')], na.rm=TRUE)
+dataSubset$DiastolAvg <- rowMeans(dataSubset[c('BPXDI1','BPXDI2','BPXDI3','BPXDI4')], na.rm=TRUE)
+# Drop all rows that are 0 or NA in the Average Systolic and Diastolic columns (these are clearly inappropriately marked or missing data that we cannot use), and then drop all rows that we don't need (the original stimulant/depressant marker questions and the four readings for systolic and diastolic pressures).  The column dropping is for general tidiness.
+dataSubset <- subset(dataSubset, SystolAvg != 0 &  DiastolAvg != 0, select = c('SEQN', 'SystolAvg', 'DiastolAvg', 'RIAGENDR', 'RIDAGEYR', 'RIDRETH1', 'DMQMILIT', 'INDHHINC'))
+summary(dataSubset)
+```
+
+```{r ageGroup}
+# create ageGroup feature/variable
+dataSubset$ageGroup = 
+  ifelse( (dataSubset$RIDAGEYR>=18)&(dataSubset$RIDAGEYR<30) , 
+          "young" , 
+          ifelse( 
+            (dataSubset$RIDAGEYR>=30)&(dataSubset$RIDAGEYR<50), 
+            "middle", 
+            ifelse(
+              dataSubset$RIDAGEYR>=50,
+              "elder",
+              "unknown"
+            )
+          )
+        )
+```
+
+# Variable Anaylsis and Approach
+
+The purpose of this study is to identify any link or lackthereof between the blood pressure and one of five factors, ethnicity, age, veteran status, gender, and annual household income, based on the survey and examination data from random group of American individuals.  Each variable and their associated effect will be examined in the following five sections.  Each section will review the distribution of the data within each subcategory of the variable (e.g., male versus female in gender or the five surveyed ethnicities in ethnicity).  In order to determine whether blood pressure is dependent or independent of each variable, an Anaylsis of Variance (ANOVA) test for variables with more than two categories or a T-Test for bi-modal variables, such as gender, will be used to identify if there is any difference in the average blood pressure value between the categories.  If there is no statistical difference in the average blood pressure values across the categories of a variable, that variable will be considered to not affect blood pressure.
+
+# The Effect of Ethnicity on Blood Pressure (presented by Rich Gude)
+
+For the sake of this study, the ethnicity of the participant is a qualitative, categorical variable.  Participants were asked to provide one of five ethnicities, and the 2005 and 2006 NHANES included an oversampling of Mexican and African Americans.  The results of the ethnic information provided by participants in the 2005 and 2006 NHANES studies are provided in the bar graph below:
+  
+``` {r, EthnicBarGraph, include=T}
+# Create a dummy table to plug into the barplot function.  Define all axises titles and the color palette (coded to ethnicity)
+ethnic_Count <- table(dataSubset$RIDRETH1)
+barPlot_Ethnicity <- barplot(ethnic_Count,
+                             main="Self-Identified Participant Ethnicity",
+                             xlab="Participant Ethnicity",
+                             ylab='Count of Participants',
+                             names.arg= c('Mex Amer', 'NonMex Hisp', 'Caucasian', 'Afr Amer', 'Other'),
+                             col= c('tan', 'red', 'white', 'black', 'blue'))
+```
+
+This study will use the ethnic and blood pressure data from `r sum(ethnic_Count)` total participants who passed the data preprocessing steps described above (i.e., those that are of age and contained adequeate blood pressure data).  Of those:
+  `r sum(ethnic_Count["Mexican American"])` or `r sum(ethnic_Count["Mexican American"])/sum(ethnic_Count)*100`% were Mexican American,
+`r sum(ethnic_Count["Other Hispanic"])` or `r sum(ethnic_Count["Other Hispanic"])/sum(ethnic_Count)*100`% were Non-Mexican Hispanic American,
+`r sum(ethnic_Count["Non-Hispanic White"])` or `r sum(ethnic_Count["Non-Hispanic White"])/sum(ethnic_Count)*100`% were Caucasian American,
+`r sum(ethnic_Count["Non-Hispanic Black"])` or `r sum(ethnic_Count["Non-Hispanic Black"])/sum(ethnic_Count)*100`% were African American, and
+`r sum(ethnic_Count["Other Race - Including Multi-Racial"])` or `r sum(ethnic_Count["Other Race - Including Multi-Racial"])/sum(ethnic_Count)*100`% were another ethnicity or multiethnic.
+
+## Discussion of the Normality and other Assumptions of the ANOVA Test for Blood Pressure Data between Ethnic Groups
+
+The Analysis of Variance (ANOVA) Test can be used to identify whether all of the ethnic groups accounted within the dataset have the same systolic blood pressures; however, the ANOVA test assumes three facets of the data:
+1. The data for each group is normally distributed.
+2. The variance in the data within each group is equivalent to other groups
+3. The error within the data is independent of the magnitude of the value
+
+The following tests were performed in order to verify the assumptions of the ANOVA test: The Shapiro-Wilk Test will be used to determine the whether the data is normally distributed amongst each ethnicity and blood pressure type, the Bartlett test of homogeneity of variances will be used to test whether the variance within each group is equivalent, and a plot of the residuals from the ANOVA test object will identify the extent of the error within the data and whether it changes with blood pressure values.  For the Shapiro-Wilk test, the null hypothesis is the data is normally distributed with respect to the blood pressure; for a Shapiro-Wilk probability value less than 0.05 (based on a 95% confidence interval), the data will not be considered normally-distributed between for the given ethnic group and blood pressure type.  For the Bartlett test, the null hypothesis is the variance in data between the groups is equivalent; for a Bartlett probability less than 0.05 (based on a 95% confidence interval), the variance will not be considered equivalent between all five ethnic groups.
+
+``` {r, EthnicHistograms, include=T}
+# Develop a dummy dataframe for Mexican American histograms
+dumMexican <- subset(dataSubset, RIDRETH1 == 'Mexican American')
+hist_MexSyst <- hist(dumMexican$SystolAvg,
+                     main="Histogram of Mexican American Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='tan')
+hist_MexDias <- hist(dumMexican$DiastolAvg,
+                     main="Histogram of Mexican American Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='tan')
+```
+
+The Shapiro-Wilk Normality Test probablity values for each ethnicity's systolic and diastolic pressure distributions are given below:
+
+For Mexican Americans:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(dumMexican$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(dumMexican$DiastolAvg)$p.value`
+
+For Other Hispanic Americans:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(dumHispanic$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(dumHispanic$DiastolAvg)$p.value`
+
+
+Based on the shape of the histograms and the Shapiro-Wilk Test probability values from each, only the diastolic pressures from other ethnic or multi-ethnic participants should be considered normally-distributed.
+
+** SHOULD WE REMOVE OUTLIERS HERE? TBD ***
+
+The Bartlett Probability Test results and a plot of the residuals error values from the average **systolic** blood pressures are presented below:
+
+``` {r Eth_Systol_ANOVA_Assump, include=T}
+bartlett.test(SystolAvg ~ RIDRETH1, data=dataSubset)
+# Plot the residuals from the ANOVA object to judge the idependence of the error
+aov_EthSystol = aov(SystolAvg ~ RIDRETH1, data = dataSubset)
+plot(aov_EthSystol, 1)
+```
+
+From the Bartlett probability value, the variance among systolic pressure data cannot be considered equivalent between each ethnic group; however, the plot of the systolic pressure residuals shows a consistent error in the terms within the data pressure ranges.  With the Shapiro Test results from above, the systolic blood pressure data appears to only satisfy two of the three assumptions for the ANOVA test.
+
+The Bartlett Probability Test results and a plot of the residuals error values from the average **diastolic** blood pressures are presented below:
+
+``` {r Eth_Diastol_ANOVA_Assump, include=T}
+bartlett.test(DiastolAvg ~ RIDRETH1, data=dataSubset)
+# Plot the residuals from the ANOVA object to judge the idependence of the error
+aov_EthDiastol = aov(DiastolAvg ~ RIDRETH1, data = dataSubset)
+plot(aov_EthDiastol, 1)
+```
+
+From the Bartlett probability value, the variance among diastolic pressure data cannot be considered equivalent between each ethnic group; however, similar to the systolic data, the plot of the diastolic pressure residuals shows a consistent error in the terms within the data pressure ranges.  With the Shapiro Test results from above and similar to the systolic data, the diastolic blood pressure data appears to only satisfy two of the three assumptions for the ANOVA test.
+
+Based on the results of the normality, Bartlett, and residuals tests, the ANOVA test results may normally be suspect; however, with a minimum sample size in the non-Mexican Hispanic ethnicity of `r nrow(dumHispanic)`, the study sample size is large enough to pull stastically-significant data.
+
+## Do Ethnic Groups Have the Same Systolic and Diastolic Blood Pressures?
+
+### Systolic Pressure
+
+The results of the normality testing of the systolic blood pressure from various ethnic groups are presented with respect to each other on a single box plot below:
+
+``` {r Eth_Systol_BoxPlots, include=T}
+# Plot Systol Averages on BoxPlot to visually compare mean and variance data with respect to Ethnic Background
+ggplot(dataSubset, aes(x=RIDRETH1, y=SystolAvg)) + 
+geom_boxplot(colour=c('tan', 'red', 'grey', 'black', 'blue'), outlier.shape=8, outlier.size=4) + labs(title="Systolic Blood Pressure Data with respect to Ethnicity", 
+       x="Ethnicity", y = "Systolic Blood Press. (mmHg)") +
+  # Add scale_x funciton to change label names to shorten them
+  scale_x_discrete(labels = c('Mex Amer', 'NonMex Hisp', 'Caucasian', 'Afr Amer', 'Other'))
+```
+
+The ANOVA Test will be used to identify whether all of the five ethnic groups accounted within the dataset have the same systolic blood pressures.  The null hypothesis for this test will be that the ethnic groups do *not* share the same mean blood pressure; for an ANOVA probability less than 0.05 (based on a 95% confidence interval), the mean values will not be considered equivalent between all five ethnic groups and more testing (Scheffe's Procedure, since the sample sizes between the groups are varied) will be necessary.
+
+``` {r Eth_Systol_ANOVA, include=T}
+# Dispaly the ANOVA test of the AVG Systol data against Ethnicity since we already calculated the ANOVA test results with the residuals plots
+summary(aov_EthSystol)
+```
+
+Based on the results of the box plot, which shows a small but noticable difference in the mean systolic blood pressures as high as ~10 mmHg, and the ANOVA test with an ANOVA probablity value significantly less than 0.05, the systolic blood pressures between the ethnic groups are *not* equivalent.
+
+The results of the Scheffe Multiple Comparisons test are reported below:
+  
+``` {r Eth_Systol_Schiffe, include=T}
+# Run the Scheffe Test to see with Ethnicities can be considered to have the same Systolic Blood Pressures
+eth_SystCompar <- scheffe.test(aov_EthSystol,"RIDRETH1", group=TRUE, console=TRUE,
+                               main="Systolic Blood Pressure between Different Ethnicities")
+```
+
+From the Scheffe results, Caucasian, African, and all Hispanic and other ethnicities have different systolic blood pressures.  Mexican, other Hispanic, and all other or multi-ethnic Americans from the survey are considered to have the same systolic blood pressure which is different and lower than Caucasian American systolic blood pressure which, in turn, is different and lower than African American systolic blood pressure.
+
+### Diastolic Pressure  
+``` {r Dia_Systol_BoxPlots, include=T}
+# Plot Diastol Averages on BoxPlot to visually commpare mean and variance data with respect to Ethnic Background
+ggplot(dataSubset, aes(x=RIDRETH1, y=DiastolAvg)) + 
+geom_boxplot(colour=c('tan', 'red', 'grey', 'black', 'blue'), outlier.shape=8, outlier.size=4) + labs(title="Diastolic Blood Pressure Data with respect to Ethnicity", 
+       x="Ethnicity", y = "Diastolic Blood Press. (mmHg)") +
+  # Add scale_x funciton to change label names to shorten them
+  scale_x_discrete(labels = c('Mex Amer', 'NonMex Hisp', 'Caucasian', 'Afr Amer', 'Other'))
+```
+
+The ANOVA Test will be used to identify whether all of the five ethnic groups accounted within the dataset have the same diastolic blood pressures.  The null hypothesis for this test will be that the ethnic groups do *not* share the same mean blood pressure; for an ANOVA probability less than 0.05 (based on a 95% confidence interval), the mean values will not be considered equivalent between all five ethnic groups and more testing (Scheffe's Procedure, since the sample sizes between the groups are varied) will be necessary.
+
+```{r Dia_Systol_ANOVA, include=T}
+# Dispaly the ANOVA test of the AVG Diastol data against Ethnicity since we already calculated the ANOVA test results with the residuals plots
+summary(aov_EthDiastol)
+```
+
+Based on the results of the box plot, which shows a small but noticable difference in the mean diastolic blood pressures as high as ~5 mmHg, and the ANOVA test with an ANOVA probablity value significantly less than 0.05, the diastolic blood pressures between the ethnic groups are *not* equivalent.
+
+The results of the Scheffe Multiple Comparisons test are reported below:
+
+``` {r Eth_Diastol_Schiffe, include=T}
+# Run the Scheffe Test to see with Ethnicities can be considered to have the same Diastolic Blood Pressures
+eth_SystCompar <- scheffe.test(aov_EthDiastol,"RIDRETH1", group=TRUE, console=TRUE,
+   main="Diastolic Blood Pressure between Different Ethnicities")
+```
+
+
+## Conclusion of Ethnicity's Effect on Blood Pressure
+
+Based on the results of ANOVA and Schiffe testing, there is a statistical difference between the average systolic and diastolic pressures between various ethnic groups within the United States and, thus, a link between ethnicity and blood pressure.                                                                                                          
+# The Effect of Age on Blood Pressure (presented by Siwei Wang)
+                                                                                        **Select the subsets with `Age` between 18 and 30, 30 and 50, elder than 50 separately.
+``` {r}
+loadPkg("ggplot2")
+loadPkg("faraway")
+loadPkg("modelr")
+Sub18_30 <- dataSubset[(dataSubset$RIDAGEYR>=18)&(dataSubset$RIDAGEYR<30),]
+Sub30_50 <- dataSubset[(dataSubset$RIDAGEYR>=30)&(dataSubset$RIDAGEYR<50),]
+Sub50 <- dataSubset[dataSubset$RIDAGEYR>=50,]
+testdf18_30 = Sub18_30[,c("SystolAvg","DiastolAvg","RIDAGEYR")]
+testdf30_50 = Sub30_50[,c("SystolAvg","DiastolAvg","RIDAGEYR")]
+testdf50 = Sub50[,c("SystolAvg","DiastolAvg","RIDAGEYR")]
+```                                                                                      
+```Making varibales numerical before doing the correlation test.```
+## Visual Presentation of Data (Bar-graph)
+
+**Show correlation among different pairs of variables.**  
+
+```{r}
+loadPkg("corrplot")
+testdf18_30cor = cor(testdf18_30) 
+testdf18_30
+corrplot(testdf18_30cor) 
+# corrplot (matrix)
+```
+```From the corrplot above, we can easily see that the relationship between blood pressure and people aged 18 to 30 are not significant. ```
+```{r}
+testdf30_50cor = cor(testdf30_50) 
+testdf18_30
+corrplot(testdf18_30cor) 
+```
+```This corrplot also demonstrates that middle aged people (30-50) do not have that higher blood pressure.```
+  
+```{r}
+testdf50cor = cor(testdf50) 
+testdf50
+corrplot(testdf50cor)
+```                                                                                       
+```Older people (above 50) seem to have higher blood pressure than yonger generations. That's what we expected before. ```
+**Build linear models with independent variables to predict.**  
+
+```{r model1}
+fit1 <- lm(SystolAvg ~ ageGroup, data =dataSubset)
+summary(fit1)
+# vif(fit1)
+```
+SystolAvg = 133.572 - 0       if elder
+SystolAvg = 133.572 - 15.058  if middle
+SystolAvg = 133.572 - 20.405  if young
+
+```We divide the blood pressure into two groups as before, which are systolic average blood pressure and diastolic blood pressure. In this chunk, we mainly discuss age groups whether have an effect on systolic blood pressure. The model is simple as we can see because we only have one varibale inside. The middle-aged people will have 15.058 smaller systolic average blood pressure than the old. Yonger people, in the meantime expected to have 20.405 smaller systolic average blood pressure. I also make some plots that can easily explain the relationship between two varibales.```
+```{r model1}
+fit2 <- lm(DiastolAvg ~ ageGroup, data =dataSubset)
+summary(fit2)
+# vif(fit1)
+```
+```For this chunk, we want to know the relationship between age group and diastolic average blood pressure. Holding all others equal, for middle group people each year increases in age predicting 2.302 increase in DiastolAve blood pressure. Also, for young people holding all others equal, each year increases in age predicting 6.366 decrease in diastolic blood pressure. The p value is <2e-16, which means that the model is significant. But R square and adjusted R square is not big, age group can only expalin 6.9% of diastolic blood pressure. Therefore, the model is not that accurate.```
+```{r model1b}
+# plot( SystolAvg ~ ageGroup, data = dataSubset)
+# boxplot(SystolAvg~ageGroup,data=dataSubset,main="Sys", xlab="AgeGroup", ylab="GRE")
+loadPkg("ggplot2")
+ggplot(dataSubset, aes(x=ageGroup, y=SystolAvg)) + 
+  geom_boxplot( colour=c("#ff0000","#11cc11","#0000ff"), outlier.shape=8, outlier.size=4) + labs(title="systolic blood pressure", x="ageGroup", y = "SystolAvg")
+ggplot(dataSubset, aes(x=ageGroup, y=DiastolAvg)) + 
+  geom_boxplot( colour=c('black','yellow','blue'), outlier.shape=8, outlier.size=4) + labs(title="diastol blood pressure", x="ageGroup", y = "DiastolAve")
+# plot(fit1)
+```
+```Here, we also use two blood pressure groups. For systolic average blood pressure, older people are observed to have higher blood pressure than the other two groups. Middle aged people have a little bit higher blood pressure than the young. For diastolic blood pressure, 30-50 aged people seem to have higher blood presurre than people more than 50. Younger people are still with lowest blood pressure. ```
+```{r}
+loadPkg("ggplot2")
+ggplot(data=dataSubset, aes(x=RIDAGEYR, y=SystolAvg, color=ageGroup )) + 
+  geom_point( outlier.shape=8, outlier.size=4 ) +
+  labs(title="ggplot", x="age", y = "systolic blood pressure")
+ggplot(data=dataSubset, aes(x=RIDAGEYR, y=DiastolAvg, color=ageGroup )) + 
+  geom_point( outlier.shape=8, outlier.size=4 ) +
+  labs(title="ggplot", x="age", y = "diastolic blood pressure")
+```
+```The results are shown the same as we mentioned before. The points are much easier to see the elder peole will have higher systolic average blood pressure than the other two groups. The middle aged people actually have less difference with younger people. The diastolic blood pressure, there is actually not that much difference bewteen different aged people.```
+
