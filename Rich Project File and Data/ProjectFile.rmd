@@ -750,27 +750,27 @@ testdf50 = Sub50[,c("SystolAvg","DiastolAvg","RIDAGEYR")]
 ```{r}
 loadPkg("corrplot")
 testdf18_30cor = cor(testdf18_30) 
-testdf18_30
+#testdf18_30
 corrplot(testdf18_30cor) 
 # corrplot (matrix)
 ```
 ```From the corrplot above, we can easily see that the relationship between blood pressure and people aged 18 to 30 are not significant. ```
 ```{r}
 testdf30_50cor = cor(testdf30_50) 
-testdf18_30
+#testdf18_30
 corrplot(testdf18_30cor) 
 ```
 ```This corrplot also demonstrates that middle aged people (30-50) do not have that higher blood pressure.```
   
 ```{r}
 testdf50cor = cor(testdf50) 
-testdf50
+#testdf50
 corrplot(testdf50cor)
 ```                                                                                       
 ```Older people (above 50) seem to have higher blood pressure than yonger generations. That's what we expected before. ```
 **Build linear models with independent variables to predict.**  
 
-```{r model1}
+```{r age model1}
 fit1 <- lm(SystolAvg ~ ageGroup, data =dataSubset)
 summary(fit1)
 # vif(fit1)
@@ -780,13 +780,13 @@ SystolAvg = 133.572 - 15.058  if middle
 SystolAvg = 133.572 - 20.405  if young
 
 ```We divide the blood pressure into two groups as before, which are systolic average blood pressure and diastolic blood pressure. In this chunk, we mainly discuss age groups whether have an effect on systolic blood pressure. The model is simple as we can see because we only have one varibale inside. The middle-aged people will have 15.058 smaller systolic average blood pressure than the old. Yonger people, in the meantime expected to have 20.405 smaller systolic average blood pressure. I also make some plots that can easily explain the relationship between two varibales.```
-```{r model1}
+```{r age model2}
 fit2 <- lm(DiastolAvg ~ ageGroup, data =dataSubset)
 summary(fit2)
 # vif(fit1)
 ```
 ```For this chunk, we want to know the relationship between age group and diastolic average blood pressure. Holding all others equal, for middle group people each year increases in age predicting 2.302 increase in DiastolAve blood pressure. Also, for young people holding all others equal, each year increases in age predicting 6.366 decrease in diastolic blood pressure. The p value is <2e-16, which means that the model is significant. But R square and adjusted R square is not big, age group can only expalin 6.9% of diastolic blood pressure. Therefore, the model is not that accurate.```
-```{r model1b}
+```{r age model1b}
 # plot( SystolAvg ~ ageGroup, data = dataSubset)
 # boxplot(SystolAvg~ageGroup,data=dataSubset,main="Sys", xlab="AgeGroup", ylab="GRE")
 loadPkg("ggplot2")
