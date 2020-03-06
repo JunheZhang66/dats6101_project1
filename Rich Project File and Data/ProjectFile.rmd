@@ -454,6 +454,248 @@ Based on the results of ANOVA and Schiffe testing, there is a statistical differ
 
 # The Effect of Gender on Blood Pressure (presented by Krystal Payton)
 
+####Gender Blood Pressure
+
+```{r Reloaded, include=F}
+# This is the chunk of programming that takes the Blood Pressure DTA file and converts it into a dataframe.
+loadPkg('tidyverse')
+loadPkg('foreign')      # Necessary to import DTA files
+loadPkg('agricolae')    # Necessary for Scheffe Test
+
+dataBP <- read.dta('SampleData_BP.dta')
+dataBP
+```
+
+```{r Reload, include=T}
+#Used the data from the dataset for ethnicity to help with creating the results for gender.
+
+# First subset is to narrow rows by age and select relevant columns 
+dataSub <- subset(dataBP, RIDAGEYR > 17, select = c('SEQN', 'BPQ150A', 'BPQ150B', 'BPQ150C', 'BPQ150D', 'BPXSY1', 'BPXSY2', 'BPXSY3', 'BPXSY4', 'BPXDI1', 'BPXDI2', 'BPXDI3', 'BPXDI4', 'RIAGENDR', 'RIDAGEYR'))
+
+dataSub <- subset(dataSub, BPQ150A != 'Yes' &  BPQ150B != 'Yes' & BPQ150C != 'Yes' & BPQ150D != 'Yes')
+
+dataSub$SystolAvg <- rowMeans(dataSub[c('BPXSY1','BPXSY2','BPXSY3','BPXSY4')], na.rm=TRUE)
+dataSub$DiastolAvg <- rowMeans(dataSub[c('BPXDI1','BPXDI2','BPXDI3','BPXDI4')], na.rm=TRUE)
+
+dataSub <- subset(dataSub, SystolAvg != 0 &  DiastolAvg != 0, select = c('SEQN', 'SystolAvg', 'DiastolAvg', 'RIAGENDR', 'RIDAGEYR'))
+summary(dataSub)
+
+```
+
+
+```{r Barployt_Gender, include=T}
+# Create a dummy table to plug into the barplot function.  Define all axises titles and the color palette (coded to ethnicity)
+Gender_Count <- table(dataSub$RIAGENDR)
+barPlot_Gender <- barplot(Gender_Count,
+                             main="Gender of the Participants",
+                             xlab="Gender of Participant",
+                             ylab='Count of Participants',
+                             names.arg= c('Male', 'Female'),
+                             col= c('blue', 'orange'))
+
+
+```
+
+
+```{r include=T}
+# Develop a dummy dataframe for Mexican American histograms
+Female_test <- subset(dataSub, RIAGENDR == 'Female')
+hist_Female_1 <- hist(Female_test$SystolAvg,
+                     main="Histogram of Female Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='yellow')
+
+Male_test <- subset(dataSub, RIAGENDR == 'Male')
+hist_Male_1 <- hist(Male_test$SystolAvg,
+                     main="Histogram of Male Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='red')
+
+hist_Female_2 <- hist(Female_test$DiastolAvg,
+                     main="Histogram of Female Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='yellow')
+hist_Male_2 <- hist(Male_test$DiastolAvg,
+                     main="Histogram of Male Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='red')
+
+```
+
+We are comparing the gender and the blood pressure data from a total of `r sum(Gender_Count)` participants who passed the data preprocessing steps described above (i.e., those that are about the age of 17 and contained adequeate blood pressure data).  Of those accounted for, there are:
+`r sum(Gender_Count["Female"])` or `r sum(Gender_Count["Female"])/sum(Gender_Count)*100`% whom were females,
+`r sum(Gender_Count["Male"])` or `r sum(Gender_Count["Male"])/sum(Gender_Count)*100`% whom were males.
+
+
+The Shapiro-Wilk Normality Test probablity values for each genders systolic and diastolic pressure distributions are given below:
+
+For Females:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(Female_test$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(Female_test$DiastolAvg)$p.value`
+
+
+For Males:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(Male_test$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(Male_test$DiastolAvg)$p.value`
+
+Just like with the histograms for the various ethnicities, the shape of the histograms (which are generally more positively skewed and narrow than a normal distribution curve for the systolic and diastolic pressure distributions, respectively) and the Shapiro-Wilk Test probability values from each, only the diastolic pressures for both males and females should be considered normally-distributed.
+
+
+```{r data, include=F}
+Female_test
+Male_test
+```
+
+```{r TTest, include=T}
+ttest_Syst = t.test(Female_test$SystolAvg, Male_test$SystolAvg)
+ttest_Syst
+
+ttest_Dias = t.test(Female_test$DiastolAvg, Male_test$DiastolAvg)
+ttest_Dias
+```
+
+The Systol average for male and female are `r format(ttest_Syst$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Syst$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
+
+The Diabolic average for male and female are `r format(ttest_Dias$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Dias$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
+
+
+
+```{r contingency, include=F}
+contable_1 = table(Female_test$SystolAvg, Female_test$DiastolAvg)
+contable_1 # the contingency table
+#loadPkg("printr")
+
+contable_2 = table(Male_test$SystolAvg, Male_test$DiastolAvg)
+contable_2
+```
+
+```{r chisq}
+chitest = chisq.test(contable_1)
+chitest
+
+chitest_1 = chisq.test(contable_2)
+chitest_1
+```
+
+A $\chi^2$-test for Female's blood pressure confirms the p-value to be `r format(chitest$p.value)`. So we can adopt that the two frequency distributions are not the same. In other words, this is equivalent to saying that Systostic and Diastolic are not independent of each other. There is an effect on females from the different blood pressures.
+
+####Veterans Blood Pressure
+
+```{r loadeddata, include=F}
+dataML <- read.csv('DMQMILIT_l.csv')
+dataML
+
+```
+
+```{r datasubset_vets, include=T}
+dataSubset_1 <- subset(dataML, DMQMILIT_l == "No" | DMQMILIT_l == "Yes" | DMQMILIT_l =="Refused", select = c('SEQN', 'BPQ150A', 'BPQ150B', 'BPQ150C', 'BPQ150D', 'BPXSY1', 'BPXSY2', 'BPXSY3', 'BPXDI1', 'BPXDI2', 'BPXDI3', 'DMQMILIT_l'))
+
+dataSubset_1 <- subset(dataSubset_1, BPQ150A != 'Yes' &  BPQ150B != 'Yes' & BPQ150C != 'Yes' & BPQ150D != 'Yes')
+
+dataSubset_1$SystolAvg <- rowMeans(dataSubset_1[c('BPXSY1','BPXSY2','BPXSY3')], na.rm=TRUE)
+dataSubset_1$DiastolAvg <- rowMeans(dataSubset_1[c('BPXDI1','BPXDI2','BPXDI3')], na.rm=TRUE)
+
+dataSubset_1 <- subset(dataSubset_1, SystolAvg != 0 &  DiastolAvg != 0, select = c('SEQN', 'SystolAvg', 'DiastolAvg', 'DMQMILIT_l'))
+summary(dataSubset_1)
+```
+
+
+```{r Barployt_Veterans, include=T}
+# Create a dummy table to plug into the barplot function.  Define all axises titles and the color palette (coded to ethnicity)
+Veterans_Count <- table(dataSubset_1$DMQMILIT_l)
+barPlot_Veterans <- barplot(Veterans_Count,
+                             main="Veterans Status of the Participants",
+                             xlab="Veterans Status",
+                             ylab='Count of Participants',
+                             names.arg= c('No', 'Refused','Yes'),
+                             col= c('orange', 'white', 'blue'))
+
+
+```
+
+
+
+
+```{r hist_vets, include=T}
+# Develop a dummy dataframe for Mexican American histograms
+Veterans_test <- subset(dataSubset_1, DMQMILIT_l == 'Yes')
+hist_Veterans_1 <- hist(Veterans_test$SystolAvg,
+                     main="Histogram of the Veterans Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='purple')
+
+Non_Veterans_test <- subset(dataSubset_1, DMQMILIT_l == 'No'| DMQMILIT_l == 'Refused')
+hist_Non_Vet_1 <- hist(Non_Veterans_test$SystolAvg,
+                     main="Histogram of the Non Veterans Systolic BP",
+                     xlab="Average Systolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='yellow')
+
+hist_Veterans <- hist(Veterans_test$DiastolAvg,
+                     main="Histogram of the Veterans Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='purple')
+hist_Non_Vet_2 <- hist(Non_Veterans_test$DiastolAvg,
+                     main="Histogram of the Non Veterans Diastolic BP",
+                     xlab="Average Diastolic Blood Pressure",
+                     ylab='Count of Pressures',
+                     col='yellow')
+
+
+```
+
+
+We are comparing the gender and the blood pressure data from a total of `r sum(Gender_Count)` participants who passed the data preprocessing steps described above (i.e., those that are about the age of 17 and contained adequeate blood pressure data).  Of those accounted for, there are:
+`r sum(Veterans_Count["Yes"])` or `r sum(Veterans_Count["Yes"])/sum(Veterans_Count)*100`% whom were Veterans,
+`r sum(Veterans_Count["No"])` or `r sum(Veterans_Count["No"])/sum(Veterans_Count)*100`% whom were non-Veterans, and
+`r sum(Veterans_Count["Refused"])` or `r sum(Veterans_Count["Refused"])/sum(Veterans_Count)*100`% whom refused to respond.
+
+
+The Shapiro-Wilk Normality Test probablity values for each genders systolic and diastolic pressure distributions are given below:
+
+For Veterans:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(Veterans_test$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(Veterans_test$DiastolAvg)$p.value`
+
+
+For Non Veterans:
+
+The Systolic Pressure Probabality Value:   `r shapiro.test(Non_Veterans_test$SystolAvg)$p.value`
+
+The Diastolic Pressure Probabality Value:   `r shapiro.test(Non_Veterans_test$DiastolAvg)$p.value`
+
+Just like with the histograms for the various ethnicities, the shape of the histograms (which are generally more positively skewed and narrow than a normal distribution curve for the systolic and diastolic pressure distributions, respectively) and the Shapiro-Wilk Test probability values from each, only the diastolic pressures for both veterans and non-veterans should be considered normally-distributed.
+
+```{r data_Vets, include=F}
+Veterans_test
+Non_Veterans_test
+```
+
+```{r TTest_Vets, include=T}
+ttest_Vet_Syst = t.test(Veterans_test$SystolAvg, Non_Veterans_test$SystolAvg)
+ttest_Vet_Syst
+
+ttest_Vet_Dias = t.test(Veterans_test$DiastolAvg, Non_Veterans_test$DiastolAvg)
+ttest_Vet_Dias
+```
+
+
+The Systol average for veterans and non veterans are `r format(ttest_Vet_Syst$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Vet_Syst$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
+
+The Diabolic average for male and female are `r format(ttest_Vet_Dias$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Vet_Dias$p.value)`, thereby rejected the null, and adopting the alternate hypothesis of the two groups have different means at $\alpha$ = 0.01 (or even 0.001).
+
 ## Visual Presentation of Data (Bar-graph)
 
 ## Systolic and Diastolic Pressures with Respect to Each Category (Histograms and Shapiro Normality Test)
