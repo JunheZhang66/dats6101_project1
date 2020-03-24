@@ -4,15 +4,23 @@ author: "Memes and Music: \nRich Gude \nSiwei Yang \nJunhe Zhang \nKrystal Payto
 date: "March 11, 2020"
 output:
   html_document:
-  code_folding: hide
-number_sections: true
-toc: yes
-toc_depth: 2
-toc_float: yes
-pdf_document:
-  toc: yes
+    code_folding: hide
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: true
+  pdf_document:
+    toc: yes
 ---
+
+<style type="text/css">
+.main-container {
   
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
 ```{r setup, include=FALSE}
 # some of common options (and the defaults) are: 
 # include=T, eval=T, echo=T, results='hide'/'asis',..., collapse=F, warning=T, message=T, error=T, cache=T, fig.width=6, fig.height=4, fig.dim=c(6,4) #inches, fig.align='left'/'center','right', 
@@ -641,7 +649,7 @@ The null hypothesis is that the two samples carry the same average.
 
 
 Let us now use the Chi-Square Test:
-```{r contingency, include=F}
+```{r contingency1, include=F}
 contable_1 = table(Female_test$SystolAvg, Female_test$DiastolAvg)
 contable_1 # the contingency table
 #loadPkg("printr")
@@ -650,7 +658,7 @@ contable_2 = table(Male_test$SystolAvg, Male_test$DiastolAvg)
 contable_2
 ```
 
-```{r contingency, include=F}
+```{r contingency2, include=F}
 contable_1 = table(Female_test$SystolAvg, Female_test$DiastolAvg)
 contable_1 # the contingency table
 #loadPkg("printr")
@@ -819,9 +827,9 @@ ttest_NonVet
 ```
 
 
-The systolic average for veterans are `r format(ttest_Vet$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Vet_Syst$p.value)`, thereby rejected the null with the means at $\alpha$ = 0.05 (or even 0.005).
+The systolic average for veterans are `r format(ttest_Vet$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Vet$p.value)`, thereby rejected the null with the means at $\alpha$ = 0.05 (or even 0.005).
 
-The diastolic average for non veterans are `r format(ttest_NonVet$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_Vet_Dias$p.value)`, thereby rejected the null with the means at $\alpha$ = 0.05 (or even 0.005).
+The diastolic average for non veterans are `r format(ttest_NonVet$estimate)` respectively. The two-sample t-test shows a small p-value of `r format(ttest_NonVet$p.value)`, thereby rejected the null with the means at $\alpha$ = 0.05 (or even 0.005).
 
 The null hypothesis is that the two samples carry the same average.  The systolic and diastolic blood pressures are independent of each other.
 
@@ -930,7 +938,7 @@ df_HHI = outlierKD2(df_HHI, DiastolAvg, TRUE)
 dim(df_HHI)
 ```
 
-#test normality
+## test normality
 
 In order to apply annova test to our 12 annual household income, I need to check their normality. All the data points on the graph are in the middle of the graph and formed a 45 degree straight line, this indicates both Systolic and Diastolic blood pressure data are normally distributed.
 
@@ -980,7 +988,7 @@ ggplot(data=df_HH_freq, aes(x=HH_income, y=Freq, color=HH_income)) +
 
 ## Systolic and Diastolic Pressures with Respect to Each Category (Histograms and Shapiro Normality Test)
 
-###get mean of Systolic and Diastolic blood pressure average
+### get mean of Systolic and Diastolic blood pressure average
 
 In order to show the relationship between each category and blood pressure, I need to build a table with each category's mean blood pressure.
 
@@ -993,7 +1001,7 @@ mean_avg_sys_dia <- df_HHI %>%
 mean_avg_sys_dia
 ```
 
-###convert numerical HH_income
+### convert numerical HH_income
 
 I also need to convert the factor into corresponding numerical value so that cor.test function can be applied.
 
@@ -1003,7 +1011,7 @@ mean_avg_sys_dia$DiastolAvg
 numer.INDHHINC
 ```
 
-###display correlation between mean average blood presure according to annual household income
+### display correlation between mean average blood presure according to annual household income
 
 The scatter plot shows that most Systolic blood pressure data points have their mean on the center and less data points distributed on both sides under each category. This tells that the blood pressure data points under each category is normally distributed.
 
@@ -1086,7 +1094,7 @@ ggplot(df_HHI, aes(x=INDHHINC, y=SystolAvg, color=INDHHINC)) +
   xlab('Annual Household Income')
 ```
 
-##anova test for systolic blood pressure vs annual household income
+## anova test for systolic blood pressure vs annual household income
 
 The anova test and tukey test for Systolic blood pressure shows that high annual household income categories have different Systolic blood pressure means with low annual household income. This result shows that annual household income do have effect on Systolic blood pressure.
 
@@ -1123,7 +1131,7 @@ tukey_dia_AoV <- TukeyHSD(dia_aov)
 tukey_dia_AoV$INDHHINC[tukey_dia_AoV$INDHHINC[,4]<0.05,4]
 ```
 
-#Healthy blood pressure frequency plot for each category
+## Healthy blood pressure frequency plot for each category
 
 Finally, I need to conform my expectation that people with higher annual household income would have healthier blood pressure status. The healthy blood pressure indicators that release by American national health organization is Systolic blood pressure below 120 and Diastolic blood pressure below 80.
 
@@ -1159,9 +1167,9 @@ ggplot(data=df_healthy_total, aes(x=HH_income, y=proportion, color=HH_income)) +
     ggtitle('Healthy BP Freq vs \nAnnual Household Income')
 ```
 
-#linear regression model test
+## linear regression model test
 
-##Sytolic blood pressure vs annual household income and Diastolic blood pressure
+### Sytolic blood pressure vs annual household income and Diastolic blood pressure
 
 
 ```{r HHI systolic lm}
@@ -1190,7 +1198,6 @@ head(model.HHI.pred)
 ggplot(model.HHI.pred,aes(DiastolAvg,pred))+geom_point(aes(DiastolAvg,pred))+geom_line(aes(pred), colour="red", size=1)
 ```
 
-# (OPTIONAL) Are the Variables Independent of Each other? (Chi^2 Test)
 
 
 

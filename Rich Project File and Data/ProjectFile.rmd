@@ -1061,7 +1061,7 @@ df_healthy_total <- df_healthy_total %>% as_tibble() %>% mutate(
 )
 head(df_healthy_total)
 df_order_healthy_total <- df_healthy_total[order(df_healthy_total$proportion),]
-head(df_order_healthy_total)
+df_order_healthy_total
 #names(HH_healthy_freq)
 ggplot(data=df_healthy_total, aes(x=HH_income, y=proportion, color=HH_income)) +
   geom_bar(stat='identity', width=0.5, fill = 'white') +
