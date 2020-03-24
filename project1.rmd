@@ -122,6 +122,9 @@ In addition, as there is limited discussion in the data report regarding where t
 
 As part of the survey and examination, the 2005 and 2006 NHANES solicited over 69 variables from the participants (not counting an unique identification number for each participant), including pulse, four reading of the diastolic and systolic pressures each, education level, marital status, and many others.  For the purposes of this study, only 18 variables are of particular interest; they are as such:
 
+We do some of the feature selection and extraction. First make subsets to narrow rows by age (age>17) and select relevant columns (ethnicity, gender, annual household, age, veteran status). Second, remove all missing values or put into expected values. Next, create two new columns that average the values from all the blood pressure data for systolic and diastolic blood pressures (except for NAs). Later we will use the two average for all the further evaluations. Then, drop all missing values with rows with 0 or NA in the Average Systolic and Diastolic columns, also drop all rows that we don’t need (irrelevant with our topics/the original stimulant/depressant marker questions…). The summary of database meet all the needs now.
+
+
 #### Participant Variables of Interest
 
 **1. Participant Sequence Number **
@@ -822,9 +825,8 @@ The diastolic average for non veterans are `r format(ttest_NonVet$estimate)` res
 
 The null hypothesis is that the two samples carry the same average.  The systolic and diastolic blood pressures are independent of each other.
 
-# The Effect of Age on Blood Pressure (presented by Siwei Yang)
-
-**Select the subsets with `Age` between 18 and 30, 30 and 50, elder than 50 separately.
+# The Effect of Age on Blood Pressure (presented by Siwei Wang)
+#Select the subsets with `Age` between 18 and 30, 30 and 50, elder than 50 separately.
 
 ``` {r}
 loadPkg("ggplot2")
@@ -837,10 +839,8 @@ testdf18_30 = Sub18_30[,c("SystolAvg","DiastolAvg","RIDAGEYR")]
 testdf30_50 = Sub30_50[,c("SystolAvg","DiastolAvg","RIDAGEYR")]
 testdf50 = Sub50[,c("SystolAvg","DiastolAvg","RIDAGEYR")]
 ```                                                                                      
-```Making varibales numerical before doing the correlation test.```
-## Visual Presentation of Data (Bar-graph)
-
-**Show correlation among different pairs of variables.**  
+#Use dataframe function to make all the varibales numerical before doing the correlation test.
+# Correction test
 
 ```{r}
 loadPkg("corrplot")
@@ -849,38 +849,35 @@ testdf18_30cor = cor(testdf18_30)
 corrplot(testdf18_30cor) 
 # corrplot (matrix)
 ```
-```From the corrplot above, we can easily see that the relationship between blood pressure and people aged 18 to 30 are not significant. ```
+#From the corrplot above, we can easily see that the relationship between blood pressure and people aged 18 to 30 are not significant. 
 ```{r}
 testdf30_50cor = cor(testdf30_50) 
 #testdf18_30
 corrplot(testdf18_30cor) 
 ```
-```This corrplot also demonstrates that middle aged people (30-50) do not have that higher blood pressure.```
+#This corrplot also demonstrates that middle aged people (30-50) do not have that higher blood pressure.
   
 ```{r}
 testdf50cor = cor(testdf50) 
 #testdf50
 corrplot(testdf50cor)
 ```                                                                                       
-```Older people (above 50) seem to have higher blood pressure than yonger generations. That's what we expected before. ```
-**Build linear models with independent variables to predict.**  
+#From the corrplot above, we can easily see that for younger and middle-aged group, there is no big correalation between age and blood pressure neither for systolic average blood pressure nor dialstolic average blood pressure. For older people, age does have an effect on blood pressure. When you get older, your blood pressure tends to become higher than before which means that you are less healthy.
 
 ```{r age model1}
 fit1 <- lm(SystolAvg ~ ageGroup, data =dataSubset)
 summary(fit1)
 # vif(fit1)
 ```
-SystolAvg = 133.572 - 0       if elder
-SystolAvg = 133.572 - 15.058  if middle
-SystolAvg = 133.572 - 20.405  if young
 
-```We divide the blood pressure into two groups as before, which are systolic average blood pressure and diastolic blood pressure. In this chunk, we mainly discuss age groups whether have an effect on systolic blood pressure. The model is simple as we can see because we only have one varibale inside. The middle-aged people will have 15.058 smaller systolic average blood pressure than the old. Yonger people, in the meantime expected to have 20.405 smaller systolic average blood pressure. I also make some plots that can easily explain the relationship between two varibales.```
+#I divide the blood pressure into two groups as before, which are systolic average blood pressure and diastolic blood pressure. In this chunk, we mainly discuss age groups whether have an effect on systolic blood pressure. The model is simple as we can see because we only have one varibale inside. The middle-aged people will have 15.058 smaller systolic average blood pressure than the old. Yonger people, in the meantime expected to have 20.405 smaller systolic average blood pressure. This is not a model to some extent. I would rather call this some descriptive statistics. I also make some plots that can easily explain the relationship between two varibales.
+
 ```{r age model2}
 fit2 <- lm(DiastolAvg ~ ageGroup, data =dataSubset)
 summary(fit2)
 # vif(fit1)
 ```
-```For this chunk, we want to know the relationship between age group and diastolic average blood pressure. Holding all others equal, for middle group people each year increases in age predicting 2.302 increase in DiastolAve blood pressure. Also, for young people holding all others equal, each year increases in age predicting 6.366 decrease in diastolic blood pressure. The p value is <2e-16, which means that the model is significant. But R square and adjusted R square is not big, age group can only expalin 6.9% of diastolic blood pressure. Therefore, the model is not that accurate.```
+#For this chunk, we want to know the relationship between age group and diastolic average blood pressure. Holding all others equal, for middle group people each year increases in age predicting 2.302 increase in DiastolAve blood pressure. Also, for young people holding all others equal, each year increases in age predicting 6.366 decrease in diastolic blood pressure. The p value is <2e-16, which means that the model is significant. But R square and adjusted R square is not big, age group can only expalin 6.9% of diastolic blood pressure. Therefore, the model is not that accurate.
 ```{r age model1b}
 # plot( SystolAvg ~ ageGroup, data = dataSubset)
 # boxplot(SystolAvg~ageGroup,data=dataSubset,main="Sys", xlab="AgeGroup", ylab="GRE")
@@ -891,7 +888,7 @@ ggplot(dataSubset, aes(x=ageGroup, y=DiastolAvg)) +
   geom_boxplot( colour=c('black','yellow','blue'), outlier.shape=8, outlier.size=4) + labs(title="diastol blood pressure", x="ageGroup", y = "DiastolAve")
 # plot(fit1)
 ```
-```Here, we also use two blood pressure groups. For systolic average blood pressure, older people are observed to have higher blood pressure than the other two groups. Middle aged people have a little bit higher blood pressure than the young. For diastolic blood pressure, 30-50 aged people seem to have higher blood presurre than people more than 50. Younger people are still with lowest blood pressure. ```
+#Here, we also use two blood pressure groups. For systolic average blood pressure, older people are observed to have higher blood pressure than the other two groups. Middle aged people have a little bit higher blood pressure than the young. For diastolic blood pressure, 30-50 aged people seem to have higher blood presurre than people more than 50. Younger people are still with lowest blood pressure. 
 ```{r}
 loadPkg("ggplot2")
 ggplot(data=dataSubset, aes(x=RIDAGEYR, y=SystolAvg, color=ageGroup )) + 
@@ -901,13 +898,8 @@ ggplot(data=dataSubset, aes(x=RIDAGEYR, y=DiastolAvg, color=ageGroup )) +
   geom_point( outlier.shape=8, outlier.size=4 ) +
   labs(title="ggplot", x="age", y = "diastolic blood pressure")
 ```
-```The results are shown the same as we mentioned before. The points are much easier to see the elder peole will have higher systolic average blood pressure than the other two groups. The middle aged people actually have less difference with younger people. The diastolic blood pressure, there is actually not that much difference bewteen different aged people.```
+#The results are shown the same as we mentioned before. The points are much easier to see the elder peole will have higher systolic average blood pressure than the other two groups. The middle aged people actually have less difference with younger people. The diastolic blood pressure, there is actually not that much difference bewteen different aged people.
 
-## Visual Presentation of Data (Bar-graph)
-
-## Systolic and Diastolic Pressures with Respect to Each Category (Histograms and Shapiro Normality Test)
-
-## Do the Categories have equivalent Blood Pressures (Box Plots and ANOVA Test for multiple Categories or Linear regression if no categorizing ages together)
 
 # The Effect of Annual Household Income on Blood Pressure (presented by Juhne Zhang)
 
