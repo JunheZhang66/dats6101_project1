@@ -611,7 +611,7 @@ The Systolic Pressure Probabality Value:   `r shapiro.test(Male_test$SystolAvg)$
 The Diastolic Pressure Probabality Value:   `r shapiro.test(Male_test$DiastolAvg)$p.value`
 
 
-```{r data, results=T}
+```{r data, results=F}
 #Female_test
 #Male_test
 
@@ -623,7 +623,7 @@ shapiro.test(Male_test$DiastolAvg)$p.value
 
 ```
 
-## Do the Categories have equivalent Blood Pressures (T-Tests and Chi-Squared Tests for Binary Categories)
+## Do the Categories have Equivalent Blood Pressures (T-Tests and Chi-Squared Tests for Binary Categories)
 
 In the Shapiro-Wilk Test, the probability values from each gender show that the blood pressures for both males and females should be considered normally-distributed.  They all have small p-values showing that this is a good data sample and that this is a good indication that the test results are not due to chance.  
 
@@ -694,7 +694,7 @@ dataML
 
 ```
 
-```{r datasubset_vets, include=T}
+```{r datasubset_vets, include=F}
 dataSubset_1 <- subset(dataML, DMQMILIT_l == "No" | DMQMILIT_l == "Yes" | DMQMILIT_l =="Refused", select = c('SEQN', 'BPQ150A', 'BPQ150B', 'BPQ150C', 'BPQ150D', 'BPXSY1', 'BPXSY2', 'BPXSY3', 'BPXDI1', 'BPXDI2', 'BPXDI3', 'DMQMILIT_l'))
 
 dataSubset_1 <- subset(dataSubset_1, BPQ150A != 'Yes' &  BPQ150B != 'Yes' & BPQ150C != 'Yes' & BPQ150D != 'Yes')
@@ -988,7 +988,7 @@ ggplot(data=df_HH_freq, aes(x=HH_income, y=Freq, color=HH_income)) +
 
 ## Systolic and Diastolic Pressures with Respect to Each Category (Histograms and Shapiro Normality Test)
 
-### get mean of Systolic and Diastolic blood pressure average
+### Mean of Systolic and Diastolic Blood Pressure Average
 
 In order to show the relationship between each category and blood pressure, I need to build a table with each category's mean blood pressure.
 
@@ -1001,7 +1001,7 @@ mean_avg_sys_dia <- df_HHI %>%
 mean_avg_sys_dia
 ```
 
-### convert numerical HH_income
+### Convert Numerical HH_income
 
 I also need to convert the factor into corresponding numerical value so that cor.test function can be applied.
 
@@ -1011,7 +1011,7 @@ mean_avg_sys_dia$DiastolAvg
 numer.INDHHINC
 ```
 
-### display correlation between mean average blood presure according to annual household income
+### Display Correlation between Mean Average Blood Presure according to Annual Household Income
 
 The scatter plot shows that most Systolic blood pressure data points have their mean on the center and less data points distributed on both sides under each category. This tells that the blood pressure data points under each category is normally distributed.
 
@@ -1079,7 +1079,7 @@ ggplot(mean_avg_sys_dia, aes(x=INDHHINC, y=DiastolAvg, color=INDHHINC)) +
 cor(numer.INDHHINC, mean_avg_sys_dia$DiastolAvg, method = 'pearson')
 ```
 
-## Do the Categories have equivalent Blood Pressures (Box Plots and T-Tests for Binary Categories and ANOVA Test for multiple Categories)
+## Do the Categories have equivalent Blood Pressures (Box Plots and T-Tests for Binary Categories and ANOVA Test for Multiple Categories)
 
 The Systolic BP Avg vs Annual Household Income boxplot shows that the mean Systolic blood pressure for each category does not vary too much from each other, this makes common sense since human blood pressure is within this range.
 
@@ -1094,7 +1094,7 @@ ggplot(df_HHI, aes(x=INDHHINC, y=SystolAvg, color=INDHHINC)) +
   xlab('Annual Household Income')
 ```
 
-## anova test for systolic blood pressure vs annual household income
+## Anova Test for Systolic Blood Pressure vs Annual Household Income
 
 The anova test and tukey test for Systolic blood pressure shows that high annual household income categories have different Systolic blood pressure means with low annual household income. This result shows that annual household income do have effect on Systolic blood pressure.
 
@@ -1167,9 +1167,9 @@ ggplot(data=df_healthy_total, aes(x=HH_income, y=proportion, color=HH_income)) +
     ggtitle('Healthy BP Freq vs \nAnnual Household Income')
 ```
 
-## linear regression model test
+## Linear regression model test
 
-### Sytolic blood pressure vs annual household income and Diastolic blood pressure
+### Sytolic Blood Pressure vs Annual Household Income and Diastolic Blood Pressure
 
 
 ```{r HHI systolic lm}
